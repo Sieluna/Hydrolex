@@ -50,7 +50,7 @@ The Laplacian operator of the SPH formula is:
 $$\nabla^2 A_s(r)=\sum_{j}A_j\frac{m_j}{\rho_j}\nabla^2 W(r-r_j,h)$$
 
 Similarly, direct discretization of the second-order SPH differential operator can lead to significant errors. By using the first-order derivative of the kernel function and performing operations similar to finite differences (dividing by the distance between particles), second-order differential discretization can be achieved:
-$$\nabla^2 A_i(r)=-\sum_{j}(A_j-A_i)\frac{2\||\nabla W(r-r_j,h)\||}{\||r_{ij}\||}$$
+$$\nabla^2 A_i(r)=-\sum_{j}(A_j-A_i)\frac{2\|\nabla W(r-r_j,h)\|}{\|r_{ij}\|}$$
 
 However, the forces derived from this second-order differential discretization do not conserve momentum.
 
@@ -78,7 +78,7 @@ $$\lim_{h \to 0}W(r,h)=\delta(r)$$
 
 4. Symmetry Condition: $$W(r,h)=W(-r,h)$$
 
-5. Compact Support Condition: $$W(r,h)=0 \text{ when } \||r\|| \geq h$$
+5. Compact Support Condition: $$W(r,h)=0 \text{ when } \|r\| \geq h$$
 
 
 ### Neighbor Particle Search
