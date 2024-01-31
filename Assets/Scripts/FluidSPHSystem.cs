@@ -1,4 +1,5 @@
 using System.Runtime.CompilerServices;
+using Unity.Assertions;
 using Unity.Burst;
 using Unity.Burst.Intrinsics;
 using Unity.Collections;
@@ -82,7 +83,7 @@ public partial struct FluidInitializeSystem : ISystem
 public partial struct FluidSPHSystem : ISystem
 {
     private const float k_KernelRadiusRate = 4f;
-    private const int k_Concurrency = 12;
+    private const int k_Concurrency = 64;
 
     private ComponentTypeHandle<FluidParticle> m_FluidParticleTypeHandle;
     private ComponentTypeHandle<PhysicsMass> m_PhysicsMassTypeHandle;
@@ -113,51 +114,52 @@ public partial struct FluidSPHSystem : ISystem
         m_PhysicsMassTypeHandle.Update(ref state);
         m_PhysicsVelocityTypeHandle.Update(ref state);
 
-        var transforms = m_ParticleQuery.ToComponentDataListAsync<LocalTransform>(Allocator.TempJob, out var transformHandle);
-        var particles = m_ParticleQuery.ToComponentDataListAsync<FluidParticle>(Allocator.TempJob, out var particleHandle);
-        var physicsMasses = m_ParticleQuery.ToComponentDataListAsync<PhysicsMass>(Allocator.TempJob, out var physicsMassHandle);
-        var physicsVelocities = m_ParticleQuery.ToComponentDataListAsync<PhysicsVelocity>(Allocator.TempJob, out var physicsVelocityHandle);
+        var particleCount = m_ParticleQuery.CalculateEntityCount();
+        var boundaryParticleCount = m_BoundaryQuery.CalculateEntityCount();
 
-        var dependency = JobHandle.CombineDependencies(transformHandle, particleHandle,
-            JobHandle.CombineDependencies(physicsMassHandle, physicsVelocityHandle));
+        var transforms = m_ParticleQuery.ToComponentDataListAsync<LocalTransform>(state.WorldUpdateAllocator, out var transformHandle);
+        var particles = m_ParticleQuery.ToComponentDataListAsync<FluidParticle>(state.WorldUpdateAllocator, out var particleHandle);
+        var physicsMasses = m_ParticleQuery.ToComponentDataListAsync<PhysicsMass>(state.WorldUpdateAllocator, out var physicsMassHandle);
+        var physicsVelocities = m_ParticleQuery.ToComponentDataListAsync<PhysicsVelocity>(state.WorldUpdateAllocator, out var physicsVelocityHandle);
+        var boundaryTransforms = m_BoundaryQuery.ToComponentDataListAsync<LocalTransform>(state.WorldUpdateAllocator, out var boundaryTransformHandle);
+        var boundaryParticles = m_BoundaryQuery.ToComponentDataListAsync<BoundaryParticle>(state.WorldUpdateAllocator, out var boundaryParticleHandle);
 
-        var boundaryTransforms = m_BoundaryQuery.ToComponentDataListAsync<LocalTransform>(Allocator.TempJob, out var boundaryTransformHandle);
-        var boundaryParticles = m_BoundaryQuery.ToComponentDataListAsync<BoundaryParticle>(Allocator.TempJob, out var boundaryParticleHandle);
-
-        dependency = JobHandle.CombineDependencies(dependency, boundaryTransformHandle, boundaryParticleHandle);
-
-        dependency.Complete();
+        state.Dependency = JobHandle.CombineDependencies(state.Dependency, transformHandle, boundaryTransformHandle);
+        state.Dependency = JobHandle.CombineDependencies(state.Dependency, particleHandle, boundaryParticleHandle);
+        state.Dependency = JobHandle.CombineDependencies(state.Dependency, physicsMassHandle, physicsVelocityHandle);
 
         var gridSize = new NativeArray<float>(1, Allocator.TempJob);
 
-        state.Dependency = new FindGridSizeJob
-        {
-            ParticleTypeHandle = m_FluidParticleTypeHandle,
-            GridSize = gridSize,
-            KernelRadiusRate = k_KernelRadiusRate,
-        }.Schedule(m_ParticleQuery, dependency);
+        state.Dependency = new FindGridSizeJob { GridSize = gridSize, KernelRadiusRate = k_KernelRadiusRate }
+            .ScheduleParallel(m_ParticleQuery, state.Dependency);
 
-        var min = new NativeArray<float>(3, Allocator.TempJob);
-        min[0] = min[1] = min[2] = float.MaxValue;
-        var max = new NativeArray<float>(3, Allocator.TempJob);
-        max[0] = max[1] = max[2] = float.MinValue;
+        var minMax = new NativeArray<float>(6, Allocator.TempJob);
+        minMax[0] = minMax[1] = minMax[2] = float.MaxValue;
+        minMax[3] = minMax[4] = minMax[5] = float.MinValue;
 
-        var grid = new NativeParallelMultiHashMap<uint, int>(transforms.Length, Allocator.TempJob);
-        var boundaryGrid = new NativeParallelMultiHashMap<uint, int>(transforms.Length, Allocator.TempJob);
+        var grid = new NativeParallelMultiHashMap<uint, int>(particleCount, Allocator.TempJob);
+        var boundaryGrid = new NativeParallelMultiHashMap<uint, int>(boundaryParticleCount, Allocator.TempJob);
 
         state.Dependency = new FindBoundsJob
         {
             Transforms = transforms,
-            BoundaryTransforms = boundaryTransforms,
             GridSize = gridSize,
-            Min = min,
-            Max = max,
-            Grid = grid,
-            BoundaryGrid = boundaryGrid,
-        }.Schedule(state.Dependency);
 
-        var pressures = new NativeArray<float>(transforms.Length, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
-        var densities = new NativeArray<float>(transforms.Length, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
+            MinMax = minMax,
+            Grid = grid.AsParallelWriter()
+        }.Schedule(particleCount, k_Concurrency, state.Dependency);
+
+        state.Dependency = new FindBoundsJob
+        {
+            Transforms = boundaryTransforms,
+            GridSize = gridSize,
+
+            MinMax = minMax,
+            Grid = boundaryGrid.AsParallelWriter()
+        }.Schedule(boundaryParticleCount, k_Concurrency, state.Dependency);
+
+        var pressures = new NativeArray<float>(particleCount, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
+        var densities = new NativeArray<float>(particleCount, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
 
         state.Dependency = new ComputeDensityAndPressureJob
         {
@@ -171,10 +173,10 @@ public partial struct FluidSPHSystem : ISystem
             KernelRadiusRate = k_KernelRadiusRate,
 
             Densities = densities,
-            Pressures = pressures,
-        }.Schedule(transforms.Length, k_Concurrency, state.Dependency);
+            Pressures = pressures
+        }.Schedule(particleCount, k_Concurrency, state.Dependency);
 
-        var forces = new NativeArray<float3>(transforms.Length, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
+        var forces = new NativeArray<float3>(particleCount, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
 
         state.Dependency = new ComputeForceJob
         {
@@ -191,21 +193,19 @@ public partial struct FluidSPHSystem : ISystem
             Pressures = pressures,
             KernelRadiusRate = k_KernelRadiusRate,
 
-            Forces = forces,
-        }.Schedule(transforms.Length, k_Concurrency, state.Dependency);
+            Forces = forces
+        }.Schedule(particleCount, k_Concurrency, state.Dependency);
 
         var chunkBaseEntityIndices =
-            m_ParticleQuery.CalculateBaseEntityIndexArrayAsync(Allocator.TempJob, state.Dependency,
+            m_ParticleQuery.CalculateBaseEntityIndexArrayAsync(state.WorldUpdateAllocator, state.Dependency,
                 out var baseIndexJobHandle);
 
         state.Dependency = new ApplyForceJob
         {
+            ChunkBaseEntityIndices = chunkBaseEntityIndices,
             Densities = densities,
             Forces = forces,
-            DeltaTime = SystemAPI.Time.DeltaTime,
-            MassTypeHandle = m_PhysicsMassTypeHandle,
-            VelocityTypeHandle = m_PhysicsVelocityTypeHandle,
-            ChunkBaseEntityIndices = chunkBaseEntityIndices
+            DeltaTime = SystemAPI.Time.DeltaTime
         }.ScheduleParallel(m_ParticleQuery, baseIndexJobHandle);
 
         state.CompleteDependency();
@@ -217,8 +217,7 @@ public partial struct FluidSPHSystem : ISystem
         boundaryTransforms.Dispose(state.Dependency);
         boundaryParticles.Dispose(state.Dependency);
         gridSize.Dispose(state.Dependency);
-        min.Dispose(state.Dependency);
-        max.Dispose(state.Dependency);
+        minMax.Dispose(state.Dependency);
         grid.Dispose(state.Dependency);
         boundaryGrid.Dispose(state.Dependency);
         pressures.Dispose(state.Dependency);
@@ -453,16 +452,14 @@ public partial struct FluidSPHSystem : ISystem
 }
 
 [BurstCompile]
-public struct FindGridSizeJob : IJobChunk
+public partial struct FindGridSizeJob : IJobEntity
 {
-    [ReadOnly] public ComponentTypeHandle<FluidParticle> ParticleTypeHandle;
-    public NativeArray<float> GridSize;
+    [NativeDisableParallelForRestriction] public NativeArray<float> GridSize;
     public float KernelRadiusRate;
 
-    public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
+    private void Execute(ref FluidParticle setting)
     {
-        var settings = chunk.GetNativeArray(ref ParticleTypeHandle);
-        var radius = settings[0].Radius;
+        var radius = setting.Radius;
         if (radius < GridSize[0] / KernelRadiusRate)
         {
             GridSize[0] = radius * KernelRadiusRate;
@@ -471,88 +468,42 @@ public struct FindGridSizeJob : IJobChunk
 }
 
 [BurstCompile]
-public struct FindBoundsJob : IJob
+public struct FindBoundsJob : IJobParallelFor
 {
     [ReadOnly] public NativeList<LocalTransform> Transforms;
-    [ReadOnly] public NativeList<LocalTransform> BoundaryTransforms;
     [ReadOnly] public NativeArray<float> GridSize;
-    public NativeArray<float> Min;
-    public NativeArray<float> Max;
-    public NativeParallelMultiHashMap<uint, int> Grid;
-    public NativeParallelMultiHashMap<uint, int> BoundaryGrid;
+    [NativeDisableParallelForRestriction] public NativeArray<float> MinMax;
+    [NativeDisableParallelForRestriction] public NativeParallelMultiHashMap<uint, int>.ParallelWriter Grid;
 
-    public void Execute()
+    public void Execute(int index)
     {
-        for (var i = 0; i < Transforms.Length; i++)
+        for (var i = 0; i < 3; i++)
         {
-            if (Transforms[i].Position.x < Min[0]) Min[0] = Transforms[i].Position.x;
-            if (Transforms[i].Position.y < Min[1]) Min[1] = Transforms[i].Position.y;
-            if (Transforms[i].Position.z < Min[2]) Min[2] = Transforms[i].Position.z;
-
-            if (Transforms[i].Position.x > Max[0]) Max[0] = Transforms[i].Position.x;
-            if (Transforms[i].Position.y > Max[1]) Max[1] = Transforms[i].Position.y;
-            if (Transforms[i].Position.z > Max[2]) Max[2] = Transforms[i].Position.z;
-
-            Grid.Add(HashUtilities.Hash(HashUtilities.Quantize(Transforms[i].Position, GridSize[0])), i);
+            var cord = Transforms[index].Position[i];
+            MinMax[i] = math.min(MinMax[i], cord); // Update Min
+            MinMax[i + 3] = math.max(MinMax[i + 3], cord); // Update Max
         }
 
-        for (var i = 0; i < BoundaryTransforms.Length; i++)
-        {
-            if (BoundaryTransforms[i].Position.x < Min[0]) Min[0] = BoundaryTransforms[i].Position.x;
-            if (BoundaryTransforms[i].Position.y < Min[1]) Min[1] = BoundaryTransforms[i].Position.y;
-            if (BoundaryTransforms[i].Position.z < Min[2]) Min[2] = BoundaryTransforms[i].Position.z;
-
-            if (BoundaryTransforms[i].Position.x > Max[0]) Max[0] = BoundaryTransforms[i].Position.x;
-            if (BoundaryTransforms[i].Position.y > Max[1]) Max[1] = BoundaryTransforms[i].Position.y;
-            if (BoundaryTransforms[i].Position.z > Max[2]) Max[2] = BoundaryTransforms[i].Position.z;
-
-            BoundaryGrid.Add(HashUtilities.Hash(HashUtilities.Quantize(BoundaryTransforms[i].Position, GridSize[0])), i);
-        }
-
-        Min[0] = math.floor(Min[0] / GridSize[0]) * GridSize[0];
-        Min[1] = math.floor(Min[1] / GridSize[0]) * GridSize[0];
-        Min[2] = math.floor(Min[2] / GridSize[0]) * GridSize[0];
-        // The grid is divided by left closed and right open,
-        // so the maximum value needs to be added with an additional grid
-        Max[0] = math.ceil(Max[0] / GridSize[0]) * GridSize[0] + 1f;
-        Max[1] = math.ceil(Max[1] / GridSize[0]) * GridSize[0] + 1f;
-        Max[2] = math.ceil(Max[2] / GridSize[0]) * GridSize[0] + 1f;
+        Grid.Add(HashUtilities.Hash(HashUtilities.Quantize(Transforms[index].Position, GridSize[0])), index);
     }
 }
 
 [BurstCompile]
-public struct ApplyForceJob : IJobChunk
+public partial struct ApplyForceJob : IJobEntity
 {
+    [ReadOnly] public NativeArray<int> ChunkBaseEntityIndices;
     [ReadOnly] public NativeArray<float> Densities;
     [ReadOnly] public NativeArray<float3> Forces;
     [ReadOnly] public float DeltaTime;
-    [ReadOnly] public ComponentTypeHandle<PhysicsMass> MassTypeHandle;
-    public ComponentTypeHandle<PhysicsVelocity> VelocityTypeHandle;
 
-    [ReadOnly] [DeallocateOnJobCompletion] public NativeArray<int> ChunkBaseEntityIndices;
-
-    public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
+    private void Execute([ChunkIndexInQuery] int chunkIndexInQuery, [EntityIndexInChunk] int entityIndexInChunk, in PhysicsMass mass, ref PhysicsVelocity velocity)
     {
-        var velocities = chunk.GetNativeArray(ref VelocityTypeHandle);
-        var masses = chunk.GetNativeArray(ref MassTypeHandle);
+        var entityIndexInQuery = ChunkBaseEntityIndices[chunkIndexInQuery] + entityIndexInChunk;
 
-        var baseEntityIndex = ChunkBaseEntityIndices[unfilteredChunkIndex];
-        var validEntitiesInChunk = 0;
-        var enumerator = new ChunkEntityEnumerator(useEnabledMask, chunkEnabledMask, chunk.Count);
-
-        while (enumerator.NextEntityIndex(out var i))
+        if (Densities[entityIndexInQuery] != 0)
         {
-            // This gives the index of the entity relative to all matching entities
-            var entityIndexInQuery = baseEntityIndex + validEntitiesInChunk;
-
-            if (Densities[entityIndexInQuery] == 0) continue;
-
-            var velocity = velocities[i];
-            velocity.ApplyLinearImpulse(masses[i],
-                Forces[entityIndexInQuery] / Densities[entityIndexInQuery] / masses[i].InverseMass * DeltaTime);
-            velocities[i] = velocity;
-
-            validEntitiesInChunk++; // Increment only for entities that match the query
+            var impulse = Forces[entityIndexInQuery] / Densities[entityIndexInQuery] / mass.InverseMass * DeltaTime;
+            velocity.ApplyLinearImpulse(mass, impulse);
         }
     }
 }
