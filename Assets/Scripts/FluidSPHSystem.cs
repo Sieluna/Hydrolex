@@ -1,7 +1,5 @@
 using System.Runtime.CompilerServices;
-using Unity.Assertions;
 using Unity.Burst;
-using Unity.Burst.Intrinsics;
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Jobs;
@@ -83,7 +81,7 @@ public partial struct FluidInitializeSystem : ISystem
 public partial struct FluidSPHSystem : ISystem
 {
     private const float k_KernelRadiusRate = 4f;
-    private const int k_Concurrency = 64;
+    private const int k_Concurrency = 32;
 
     private ComponentTypeHandle<FluidParticle> m_FluidParticleTypeHandle;
     private ComponentTypeHandle<PhysicsMass> m_PhysicsMassTypeHandle;
@@ -477,12 +475,13 @@ public struct FindBoundsJob : IJobParallelFor
 
     public void Execute(int index)
     {
-        for (var i = 0; i < 3; i++)
-        {
-            var cord = Transforms[index].Position[i];
-            MinMax[i] = math.min(MinMax[i], cord); // Update Min
-            MinMax[i + 3] = math.max(MinMax[i + 3], cord); // Update Max
-        }
+        if (Transforms[index].Position.x < MinMax[0]) MinMax[0] = Transforms[index].Position.x;
+        if (Transforms[index].Position.y < MinMax[1]) MinMax[1] = Transforms[index].Position.y;
+        if (Transforms[index].Position.z < MinMax[2]) MinMax[2] = Transforms[index].Position.z;
+
+        if (Transforms[index].Position.x > MinMax[3]) MinMax[3] = Transforms[index].Position.x;
+        if (Transforms[index].Position.y > MinMax[4]) MinMax[4] = Transforms[index].Position.y;
+        if (Transforms[index].Position.z > MinMax[5]) MinMax[5] = Transforms[index].Position.z;
 
         Grid.Add(HashUtilities.Hash(HashUtilities.Quantize(Transforms[index].Position, GridSize[0])), index);
     }
