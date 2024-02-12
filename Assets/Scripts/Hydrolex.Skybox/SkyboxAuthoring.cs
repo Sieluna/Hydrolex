@@ -1,40 +1,43 @@
 ﻿using Unity.Entities;
+using Unity.Mathematics;
 using UnityEngine;
 
 public class SkyboxAuthoring : MonoBehaviour
 {
     [Header("Scattering")]
-    public Gradient RayleighGradientColor = SkyboxPreset.GetDefaultRayleighGradientColor();
-    public Gradient MieGradientColor = SkyboxPreset.GetDefaultMieGradientColor();
-    public AnimationCurve RayleighCurve = SkyboxPreset.GetDefaultRayleighCurve();
-    public AnimationCurve MieCurve = SkyboxPreset.GetDefaultMieCurve();
-    public AnimationCurve KrCurve = SkyboxPreset.GetDefaultKrCurve();
-    public AnimationCurve KmCurve = SkyboxPreset.GetDefaultKmCurve();
-    public AnimationCurve ScatteringCurve = SkyboxPreset.GetDefaultScatteringCurve();
-    public AnimationCurve SunIntensityCurve = SkyboxPreset.GetDefaultSunIntensityCurve();
-    public AnimationCurve NightIntensityCurve = SkyboxPreset.GetDefaultNightIntensityCurve();
-    public AnimationCurve ExposureCurve = SkyboxPreset.GetDefaultExposureCurve();
-
-    [Header("Night sky")]
-    public Vector3 StarfieldColorBalance = new Vector3(1.0f, 1.0f, 1.0f);
-    public Vector3 StarfieldPosition;
-    public AnimationCurve StarfieldIntensityCurve = SkyboxPreset.GetDefaultStarfieldIntensityCurve();
-    public AnimationCurve MilkyWayIntensityCurve = SkyboxPreset.GetDefaultMilkyWayIntensityCurve();
-    public Gradient MoonDiskGradientColor = SkyboxPreset.GetDefaultMoonDiskGradientColor();
-    public Gradient MoonBrightGradientColor = SkyboxPreset.GetDefaultMoonBrightGradientColor();
-    public AnimationCurve MoonBrightRangeCurve = SkyboxPreset.GetDefaultMoonBrightRangeCurve();
-
-    [Header("Clouds")]
-    public Gradient CloudGradientColor = SkyboxPreset.GetDefaultCloudGradientColor();
-    public AnimationCurve CloudScatteringCurve = SkyboxPreset.GetDefaultCloudScatteringCurve();
-    public AnimationCurve CloudExtinctionCurve = SkyboxPreset.GetDefaultCloudExtinctionCurve();
-    public AnimationCurve CloudPowerCurve = SkyboxPreset.GetDefaultCloudPowerCurve();
-    public AnimationCurve CloudIntensityCurve = SkyboxPreset.GetDefaultCloudIntensityCurve();
-    [Range(-0.01f, 0.01f)] public float CloudRotationSpeed = 0.0025f;
+    public float MolecularDensity = 2.55f;
+    public float3 Wavelength = new(680, 550, 450);
+    public float Kr = 8.4f;
+    public float Km = 1.2f;
+    public float Rayleigh = 1.5f;
+    public float Mie = 1.24f;
+    public float MieDistance = 0.1f;
+    public float Scattering = 0.25f;
+    public float Luminance = 1.0f;
+    public float Exposure = 2.0f;
+    public Color RayleighColor = new(0.77f, 0.9f, 1f);
+    public Color MieColor = new(0.96f, 0.72f, 0.32f);
+    public Color ScatteringColor = Color.white;
 
     [Header("Celestium")]
-    public float SunDiskSize = 0.5f;
-    public float MoonDiskSize = 0.5f;
+    public float SunTextureSize = 1.5f;
+    public float SunTextureIntensity = 1.0f;
+    public Color SunTextureColor = Color.white;
+    public float MoonTextureSize = 5.0f;
+    public float MoonTextureIntensity = 1.0f;
+    public Color MoonTextureColor = Color.white;
+    public float StarsIntensity = 0;
+    public float MilkyWayIntensity = 0;
+    public Color StarfieldColor = Color.white;
+    public float3 StarfieldRotation = float3.zero;
+
+    [Header("Clouds")]
+    public float CloudsAltitude = 7.5f;
+    public float CloudsDirection = 0.0f;
+    public float CloudsSpeed = 0.1f;
+    public float CloudsDensity = 0.75f;
+    public Color CloudsColor1 = Color.white;
+    public Color CloudsColor2 = Color.white;
 
     private class SkyboxBaker : Baker<SkyboxAuthoring>
     {
@@ -44,34 +47,37 @@ public class SkyboxAuthoring : MonoBehaviour
 
             AddComponent(entity, new Skybox
             {
-                RayleighGradientColor = authoring.RayleighGradientColor.TryGetReference(this),
-                MieGradientColor = authoring.MieGradientColor.TryGetReference(this),
-                RayleighCurve = authoring.RayleighCurve.TryGetReference(this),
-                MieCurve = authoring.MieCurve.TryGetReference(this),
-                KrCurve = authoring.KrCurve.TryGetReference(this),
-                KmCurve = authoring.KmCurve.TryGetReference(this),
-                ScatteringCurve = authoring.ScatteringCurve.TryGetReference(this),
-                SunIntensityCurve = authoring.SunIntensityCurve.TryGetReference(this),
-                NightIntensityCurve = authoring.NightIntensityCurve.TryGetReference(this),
-                ExposureCurve = authoring.ExposureCurve.TryGetReference(this),
+                MolecularDensity = authoring.MolecularDensity,
+                Wavelength = authoring.Wavelength,
+                Kr = authoring.Kr,
+                Km = authoring.Km,
+                Rayleigh = authoring.Rayleigh,
+                Mie = authoring.Mie,
+                MieDistance = authoring.MieDistance,
+                Scattering = authoring.Scattering,
+                Luminance = authoring.Luminance,
+                Exposure = authoring.Exposure,
+                RayleighColor = authoring.RayleighColor,
+                MieColor = authoring.MieColor,
+                ScatteringColor = authoring.ScatteringColor,
 
-                StarfieldColorBalance = authoring.StarfieldColorBalance,
-                StarfieldPosition = authoring.StarfieldPosition,
-                StarfieldIntensityCurve = authoring.StarfieldIntensityCurve.TryGetReference(this),
-                MilkyWayIntensityCurve = authoring.MilkyWayIntensityCurve.TryGetReference(this),
-                MoonDiskGradientColor = authoring.MoonDiskGradientColor.TryGetReference(this),
-                MoonBrightGradientColor = authoring.MoonBrightGradientColor.TryGetReference(this),
-                MoonBrightRangeCurve = authoring.MoonBrightRangeCurve.TryGetReference(this),
+                SunTextureSize = authoring.SunTextureSize,
+                SunTextureIntensity = authoring.SunTextureIntensity,
+                SunTextureColor = authoring.SunTextureColor,
+                MoonTextureSize = authoring.MoonTextureSize,
+                MoonTextureIntensity = authoring.MoonTextureIntensity,
+                MoonTextureColor = authoring.MoonTextureColor,
+                StarsIntensity = authoring.StarsIntensity,
+                MilkyWayIntensity = authoring.MilkyWayIntensity,
+                StarfieldColor = authoring.StarfieldColor,
+                StarfieldRotation = authoring.StarfieldRotation,
 
-                CloudGradientColor = authoring.CloudGradientColor.TryGetReference(this),
-                CloudScatteringCurve = authoring.CloudScatteringCurve.TryGetReference(this),
-                CloudExtinctionCurve = authoring.CloudExtinctionCurve.TryGetReference(this),
-                CloudPowerCurve = authoring.CloudPowerCurve.TryGetReference(this),
-                CloudIntensityCurve = authoring.CloudIntensityCurve.TryGetReference(this),
-                CloudRotationSpeed = authoring.CloudRotationSpeed,
-                
-                SunDiskSize = authoring.SunDiskSize,
-                MoonDiskSize = authoring.MoonDiskSize
+                CloudsAltitude = authoring.CloudsAltitude,
+                CloudsDirection = authoring.CloudsDirection,
+                CloudsSpeed = authoring.CloudsSpeed,
+                CloudsDensity = authoring.CloudsDensity,
+                CloudsColor1 = authoring.CloudsColor1,
+                CloudsColor2 = authoring.CloudsColor2
             });
         }
     }
@@ -79,42 +85,13 @@ public class SkyboxAuthoring : MonoBehaviour
 
 public static class SkyboxPreset
 {
-    public static Gradient GetDefaultRayleighGradientColor()
-    {
-        return new Gradient
-        {
-            colorKeys = new GradientColorKey[]
-            {
-                new(new Color(0.25f, 0.66f, 1.0f), 0.20f),
-                new(new Color(0.61f, 0.82f, 1.0f), 0.25f),
-                new(new Color(0.79f, 0.92f, 1.0f), 0.50f),
-                new(new Color(0.61f, 0.82f, 1.0f), 0.75f),
-                new(new Color(0.25f, 0.66f, 1.0f), 0.80f)
-            }
-        };
-    }
-
-    public static Gradient GetDefaultMieGradientColor()
-    {
-        return new Gradient
-        {
-            colorKeys = new GradientColorKey[]
-            {
-                new(new Color(0.99f, 0.7f, 0.52f), 0.35f),
-                new(new Color(1.00f, 1.0f, 1.00f), 0.50f),
-                new(new Color(0.99f, 0.7f, 0.52f), 0.65f)
-            }
-        };
-    }
-
     public static AnimationCurve GetDefaultRayleighCurve()
     {
         return new AnimationCurve
         {
             keys = new Keyframe[]
             {
-                new(00.0f, 2.0f),
-                new(24.0f, 2.0f)
+                new(00.0f, 0.25f), new(06.0f, 0.15f), new(18.0f, 0.15f), new(24.0f, 0.25f)
             }
         };
     }
@@ -125,43 +102,11 @@ public static class SkyboxPreset
         {
             keys = new Keyframe[]
             {
-                new(00.0f, 0.0f),
-                new(06.0f, 0.0f),
-                new(07.0f, 5.0f),
-                new(08.0f, 0.5f),
-                new(12.0f, 0.2f),
-                new(16.0f, 0.5f),
-                new(17.0f, 5.0f),
-                new(18.0f, 0.0f),
-                new(24.0f, 0.0f)
+                new(00.0f, 0.500f), new(06.0f, 0.125f), new(18.0f, 0.125f), new(24.0f, 0.500f)
             }
         };
     }
-
-    public static AnimationCurve GetDefaultKrCurve()
-    {
-        return new AnimationCurve
-        {
-            keys = new Keyframe[]
-            {
-                new(00.0f, 8.4f),
-                new(24.0f, 8.4f)
-            }
-        };
-    }
-
-    public static AnimationCurve GetDefaultKmCurve()
-    {
-        return new AnimationCurve
-        {
-            keys = new Keyframe[]
-            {
-                new(00.0f, 1.25f),
-                new(24.0f, 1.25f)
-            }
-        };
-    }
-
+    
     public static AnimationCurve GetDefaultScatteringCurve()
     {
         return new AnimationCurve
@@ -177,42 +122,35 @@ public static class SkyboxPreset
         };
     }
 
-    public static AnimationCurve GetDefaultSunIntensityCurve()
+    public static Gradient GetDefaultRayleighGradientColor()
     {
-        return new AnimationCurve
+        return new Gradient
         {
-            keys = new Keyframe[]
+            colorKeys = new GradientColorKey[]
             {
-                new(00.0f, 3.0f),
-                new(24.0f, 3.0f)
+                new(new Color(0.25f, 0.66f, 1.0f), 0.20f),
+                new(new Color(0.61f, 0.82f, 1.0f), 0.25f),
+                new(new Color(1.0f, 1.0f, 1.0f), 0.35f),
+                new(new Color(1.0f, 1.0f, 1.0f), 0.65f),
+                new(new Color(0.61f, 0.82f, 1.0f), 0.75f),
+                new(new Color(0.25f, 0.66f, 1.0f), 0.80f)
             }
         };
     }
 
-    public static AnimationCurve GetDefaultNightIntensityCurve()
+    public static Gradient GetDefaultMieGradientColor()
     {
-        return new AnimationCurve
+        return new Gradient
         {
-            keys = new Keyframe[]
+            colorKeys = new GradientColorKey[]
             {
-                new(00.0f, 1.0f),
-                new(05.0f, 1.0f),
-                new(07.5f, 0.0f),
-                new(16.5f, 0.0f),
-                new(19.0f, 1.0f),
-                new(24.0f, 1.0f)
-            }
-        };
-    }
-
-    public static AnimationCurve GetDefaultExposureCurve()
-    {
-        return new AnimationCurve
-        {
-            keys = new Keyframe[]
-            {
-                new(00.0f, 1.5f),
-                new(24.0f, 1.5f)
+                new(new Color(0.25f, 0.659f, 1.00f), 0.225f),
+                new(new Color(0.96f, 0.718f, 0.32f), 0.255f),
+                new(new Color(0.96f, 0.718f, 0.32f), 0.300f),
+                new(new Color(1.00f, 1.000f, 1.00f), 0.500f),
+                new(new Color(0.96f, 0.718f, 0.32f), 0.700f),
+                new(new Color(0.96f, 0.718f, 0.32f), 0.745f),
+                new(new Color(0.25f, 0.659f, 1.00f), 0.775f)
             }
         };
     }

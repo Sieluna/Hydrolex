@@ -24,7 +24,8 @@ Material:
   m_Shader: {fileID: 4800000, guid: 2f764f6fa5694ffc9cf9861f05f8570e, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
-  m_ValidKeywords: []
+  m_ValidKeywords:
+  - _ENABLE_CLOUD
   m_InvalidKeywords:
   - _MAPPING_LATITUDE_LONGITUDE_LAYOUT
   - _SUNDISK_HIGH_QUALITY
@@ -47,7 +48,7 @@ Material:
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _CloudTexture:
-        m_Texture: {fileID: 2800000, guid: 93b83fd09ba8bf844bc8a29fa4f3f3bb, type: 3}
+        m_Texture: {fileID: 2800000, guid: be3e5567527e31a45b1c75bc5e46998c, type: 3}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _DetailAlbedoMap:
@@ -130,6 +131,7 @@ Material:
     - _DetailNormalMapScale: 1
     - _DstBlend: 0
     - _DstBlendAlpha: 0
+    - _EnableCloud: 1
     - _EnvironmentReflections: 1
     - _Exposure: 1.3
     - _GlossMapScale: 0

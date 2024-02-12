@@ -5,16 +5,31 @@ using Hash128 = Unity.Entities.Hash128;
 
 public static class BlobGradientUtilities
 {
-    public static BlobAssetReference<BlobGradient> CreateBlobAssetReference(this Gradient curve, Allocator allocator = Allocator.Persistent)
+    public static BlobAssetReference<BlobGradient> CreateBlobAssetReference(this Gradient color, Allocator allocator = Allocator.Persistent)
     {
-        using var builder = new BlobBuilder(Allocator.Temp);
-        ref var data = ref builder.ConstructRoot<BlobGradient>();
-        data.Mode = curve.mode;
+        var builder = new BlobBuilder(Allocator.Temp);
 
-        var colorKeyBuilder = builder.Allocate(ref data.ColorKeys, curve.colorKeys.Length);
-        for (var i = 0; i < curve.colorKeys.Length; i++)
+        ref var data = ref builder.ConstructRoot<BlobGradient>();
+
+        builder.AllocateBlobGradient(ref data, color);
+
+        var result = builder.CreateBlobAssetReference<BlobGradient>(allocator);
+
+        builder.Dispose();
+
+        return result;
+    }
+
+    public static void AllocateBlobGradient(ref this BlobBuilder builder, ref BlobGradient blobGradient, Gradient color)
+    {
+        blobGradient.Mode = color.mode;
+
+        var colorKeyBuilder = builder.Allocate(ref blobGradient.ColorKeys, color.colorKeys.Length);
+        var alphaKeyBuilder = builder.Allocate(ref blobGradient.AlphaKeys, color.alphaKeys.Length);
+
+        for (var i = 0; i < color.colorKeys.Length; i++)
         {
-            var item = curve.colorKeys[i];
+            var item = color.colorKeys[i];
             var j = i - 1;
 
             while (j >= 0 && colorKeyBuilder[j].Time > item.time)
@@ -26,10 +41,9 @@ public static class BlobGradientUtilities
             colorKeyBuilder[j + 1] = new ColorKey(item);
         }
 
-        var alphaKeyBuilder = builder.Allocate(ref data.AlphaKeys, curve.alphaKeys.Length);
-        for (var i = 0; i < curve.alphaKeys.Length; i++)
+        for (var i = 0; i < color.alphaKeys.Length; i++)
         {
-            var item = curve.alphaKeys[i];
+            var item = color.alphaKeys[i];
             var j = i - 1;
 
             while (j >= 0 && alphaKeyBuilder[j].Time > item.time)
@@ -40,8 +54,6 @@ public static class BlobGradientUtilities
 
             alphaKeyBuilder[j + 1] = new AlphaKey(item);
         }
-
-        return builder.CreateBlobAssetReference<BlobGradient>(allocator);
     }
 
     public static BlobAssetReference<BlobGradient> TryGetReference<T>(this Gradient gradient, Baker<T> baker) where T : Component

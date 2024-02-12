@@ -13,29 +13,35 @@ public class CelestiumSystemTests
         {
             yield return new TestCaseData(
                 12.0f,
-                new Celestium { Latitude = 0, Longitude = 0, Utc = 0 },
+                new Celestium { SimulationType = CelestiumSimulation.Simple, Latitude = 0, Longitude = 0, Utc = 0 },
                 new quaternion(0.0f, 0.707f, -0.707f, 0.0f),
                 new quaternion(-0.707f, 0.0f, 0.0f, 0.707f),
                 math.down(),
                 math.up()
-            ).SetName("CenterPositionMidDay");
+            ).SetName("SimpleCenterPositionMidDay");
         }
     }
 
     [Test, TestCaseSource(nameof(CelestiumTestCases))]
     public void GetSunDirectionTest(float time, Celestium preset, quaternion sunRotation, quaternion moonRotation, float3 sunDirection, float3 moonDirection)
     {
-        var actual = CelestiumSystem.GetSunDirection(preset.Longitude, preset.Latitude, time, preset.Utc);
+        if (preset.SimulationType == CelestiumSimulation.Simple)
+        {
+            var actual = CelestiumSystem.GetChimericalSunDirection(preset, time);
 
-        AssertQuaternionEqual(sunRotation, actual, 1E-3f, $"expect: {sunRotation}, actual: {actual}");
+            AssertQuaternionEqual(sunRotation, actual, 1E-3f, $"expect: {sunRotation}, actual: {actual}");
+        }
     }
 
     [Test, TestCaseSource(nameof(CelestiumTestCases))]
     public void GetMoonDirectionTest(float time, Celestium preset, quaternion sunRotation, quaternion moonRotation, float3 sunDirection, float3 moonDirection)
     {
-        var actual = CelestiumSystem.GetMoonDirection(sunDirection);
+        if (preset.SimulationType == CelestiumSimulation.Simple)
+        {
+            var actual = CelestiumSystem.GetChimericalMoonDirection(sunDirection);
 
-        AssertQuaternionEqual(moonRotation, actual, 1E-3f, $"expect: {moonRotation}, actual: {actual}");
+            AssertQuaternionEqual(moonRotation, actual, 1E-3f, $"expect: {moonRotation}, actual: {actual}");
+        }
     }
 
     [Test, TestCaseSource(nameof(CelestiumTestCases))]
@@ -58,6 +64,7 @@ public class CelestiumSystemTests
         {
             SunTransform = sun,
             MoonTransform = moon,
+            SimulationType = preset.SimulationType,
             Latitude = preset.Latitude,
             Longitude = preset.Longitude,
             Utc = preset.Utc

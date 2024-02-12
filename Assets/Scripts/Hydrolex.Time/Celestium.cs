@@ -1,8 +1,12 @@
 ﻿using Unity.Entities;
 using Unity.Mathematics;
 
+public enum CelestiumSimulation { Simple, Realistic }
+
 public struct Celestium : IComponentData
 {
+    public CelestiumSimulation SimulationType;
+
     public Entity SunTransform;
     public Entity MoonTransform;
     public float Latitude;
