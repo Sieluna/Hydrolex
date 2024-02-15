@@ -11,59 +11,59 @@ public class CelestiumSystemTests
     {
         get
         {
-            yield return new TestCaseData(
-                12.0f,
-                new Celestium { SimulationType = CelestiumSimulation.Simple, Latitude = 0, Longitude = 0, Utc = 0 },
-                new quaternion(0.0f, 0.707f, -0.707f, 0.0f),
-                new quaternion(-0.707f, 0.0f, 0.0f, 0.707f),
-                math.down(),
-                math.up()
-            ).SetName("SimpleCenterPositionMidDay");
+            yield return new TestCaseData(new object[]
+                {
+                    12.0f,
+                    new Celestium { SimulationType = CelestiumSimulation.Simple, Latitude = 0, Longitude = 0, Utc = 0 },
+                    (new quaternion(0.0f, 0.707f, -0.707f, 0.0f), math.down()),
+                    (new quaternion(-0.707f, 0.0f, 0.0f, 0.707f), math.up())
+                })
+                .SetName("SimpleCenterPositionMidDay");
         }
     }
 
     [Test, TestCaseSource(nameof(CelestiumTestCases))]
-    public void GetSunDirectionTest(float time, Celestium preset, quaternion sunRotation, quaternion moonRotation, float3 sunDirection, float3 moonDirection)
+    public void GetSunDirectionTest(float time, Celestium preset, (quaternion, float3) sun, (quaternion, float3) moon)
     {
         if (preset.SimulationType == CelestiumSimulation.Simple)
         {
             var actual = CelestiumSystem.GetChimericalSunDirection(preset, time);
 
-            AssertQuaternionEqual(sunRotation, actual, 1E-3f, $"expect: {sunRotation}, actual: {actual}");
+            AssertQuaternionEqual(sun.Item1, actual, 1e-3f, $"expect: {sun.Item2}, actual: {actual}");
         }
     }
 
     [Test, TestCaseSource(nameof(CelestiumTestCases))]
-    public void GetMoonDirectionTest(float time, Celestium preset, quaternion sunRotation, quaternion moonRotation, float3 sunDirection, float3 moonDirection)
+    public void GetMoonDirectionTest(float time, Celestium preset, (quaternion, float3) sun, (quaternion, float3) moon)
     {
         if (preset.SimulationType == CelestiumSimulation.Simple)
         {
-            var actual = CelestiumSystem.GetChimericalMoonDirection(sunDirection);
+            var actual = CelestiumSystem.GetChimericalMoonDirection(sun.Item2);
 
-            AssertQuaternionEqual(moonRotation, actual, 1E-3f, $"expect: {moonRotation}, actual: {actual}");
+            AssertQuaternionEqual(moon.Item1, actual, 1e-3f, $"expect: {moon.Item2}, actual: {actual}");
         }
     }
 
     [Test, TestCaseSource(nameof(CelestiumTestCases))]
-    public void UpdateTest(float time, Celestium preset, quaternion sunRotation, quaternion moonRotation, float3 sunDirection, float3 moonDirection)
+    public void UpdateTest(float time, Celestium preset, (quaternion, float3) sun, (quaternion, float3) moon)
     {
         using var world = new World("Test world");
 
         var entity = world.EntityManager.CreateEntity(typeof(LocalTransform), typeof(Celestium), typeof(Time));
-        var moon = world.EntityManager.CreateEntity(typeof(LocalTransform), typeof(Parent));
-        var sun = world.EntityManager.CreateEntity(typeof(LocalTransform), typeof(Parent));
+        var moonEntity = world.EntityManager.CreateEntity(typeof(LocalTransform), typeof(Parent));
+        var sunEntity = world.EntityManager.CreateEntity(typeof(LocalTransform), typeof(Parent));
 
-        world.EntityManager.SetComponentData(moon, new Parent { Value = entity });
-        world.EntityManager.SetComponentData(sun, new Parent { Value = entity });
+        world.EntityManager.SetComponentData(moonEntity, new Parent { Value = entity });
+        world.EntityManager.SetComponentData(sunEntity, new Parent { Value = entity });
         world.EntityManager.SetComponentData(entity, LocalTransform.Identity);
-        world.EntityManager.SetComponentData(moon, LocalTransform.Identity);
-        world.EntityManager.SetComponentData(sun, LocalTransform.Identity);
+        world.EntityManager.SetComponentData(moonEntity, LocalTransform.Identity);
+        world.EntityManager.SetComponentData(sunEntity, LocalTransform.Identity);
 
         world.EntityManager.SetComponentData(entity, new Time { Timeline = time });
         world.EntityManager.SetComponentData(entity, new Celestium
         {
-            SunTransform = sun,
-            MoonTransform = moon,
+            SunTransform = sunEntity,
+            MoonTransform = moonEntity,
             SimulationType = preset.SimulationType,
             Latitude = preset.Latitude,
             Longitude = preset.Longitude,
@@ -71,24 +71,22 @@ public class CelestiumSystemTests
         });
 
         var parentSystem = world.GetOrCreateSystem<ParentSystem>();
-
         var celestiumSystem = world.GetOrCreateSystem<CelestiumSystem>();
 
         parentSystem.Update(world.Unmanaged);
-
         celestiumSystem.Update(world.Unmanaged);
 
         world.EntityManager.CompleteAllTrackedJobs();
 
-        var moonTransform = world.EntityManager.GetComponentData<LocalTransform>(moon);
-        var sunTransform = world.EntityManager.GetComponentData<LocalTransform>(sun);
+        var moonTransform = world.EntityManager.GetComponentData<LocalTransform>(moonEntity);
+        var sunTransform = world.EntityManager.GetComponentData<LocalTransform>(sunEntity);
         var celestium = world.EntityManager.GetComponentData<Celestium>(entity);
 
-        AssertQuaternionEqual(sunRotation, sunTransform.Rotation, 1E-3f, $"expect: {sunRotation}, actual: {sunTransform.Rotation}");
-        AssertFloat3Equal(sunDirection, celestium.SunLocalDirection, 1E-3f, $"expect: {sunDirection}, actual: {celestium.SunLocalDirection}");
+        AssertQuaternionEqual(sun.Item1, sunTransform.Rotation, 1e-3f, $"expect: {sun.Item1}, actual: {sunTransform.Rotation}");
+        AssertFloat3Equal(sun.Item2, celestium.SunLocalDirection, 1e-3f, $"expect: {sun.Item2}, actual: {celestium.SunLocalDirection}");
 
-        AssertQuaternionEqual(moonRotation, moonTransform.Rotation, 1E-3f, $"expect: {moonRotation}, actual: {moonTransform.Rotation}");
-        AssertFloat3Equal(moonDirection, celestium.MoonLocalDirection, 1E-3f, $"expect: {moonDirection}, actual: {celestium.MoonLocalDirection}");
+        AssertQuaternionEqual(moon.Item1, moonTransform.Rotation, 1e-3f, $"expect: {moon.Item1}, actual: {moonTransform.Rotation}");
+        AssertFloat3Equal(moon.Item2, celestium.MoonLocalDirection, 1e-3f, $"expect: {moon.Item2}, actual: {celestium.MoonLocalDirection}");
     }
     
     public static void AssertQuaternionEqual(quaternion expected, quaternion actual, float delta, string message = "")

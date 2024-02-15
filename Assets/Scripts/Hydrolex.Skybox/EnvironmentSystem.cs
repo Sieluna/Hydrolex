@@ -25,17 +25,23 @@ public partial class EnvironmentSystem : SystemBase
             ref var sunTransform = ref SystemAPI.GetComponentRW<LocalTransform>(celestial.SunTransform).ValueRW;
             ref var transform = ref SystemAPI.GetComponentRW<LocalTransform>(entity).ValueRW;
 
+            var probe = EntityManager.GetComponentObject<ReflectionProbe>(environment.ValueRO.ReflectionProbeTransform);
             var flare = EntityManager.GetComponentObject<LensFlareComponentSRP>(environment.ValueRO.LightTransform);
             var light = EntityManager.GetComponentObject<Light>(environment.ValueRO.LightTransform);
 
             lightTransform.Rotation = GetDirectionalLightRotation(celestial, math.dot(-sunTransform.Forward(), transform.Up()));
+
+            UpdateReflectionProbe(probe, environment.ValueRO, SystemAPI.Time.DeltaTime);
 
             flare.intensity = environment.ValueRO.FlareIntensity;
 
             light.intensity = environment.ValueRO.LightIntensity;
             light.color = environment.ValueRO.LightColor;
 
+            RenderSettings.sun ??= light;
+
             RenderSettings.ambientIntensity = environment.ValueRO.AmbientIntensity;
+            RenderSettings.ambientLight = environment.ValueRO.AmbientSkyColor;
             RenderSettings.ambientSkyColor = environment.ValueRO.AmbientSkyColor;
             RenderSettings.ambientEquatorColor = environment.ValueRO.EquatorSkyColor;
             RenderSettings.ambientGroundColor =  environment.ValueRO.GroundSkyColor;
@@ -46,5 +52,37 @@ public partial class EnvironmentSystem : SystemBase
     {
         var lightDirection = sunElevation >= 0.0f ? celestial.SunLocalDirection : celestial.MoonLocalDirection;
         return quaternion.LookRotation(lightDirection, math.up());
+    }
+
+    private void UpdateReflectionProbe(ReflectionProbe probe, Environment environment, float deltaTime)
+    {
+#if UNITY_EDITOR
+        if (probe)
+        {
+            probe.mode = ReflectionProbeMode.Realtime;
+            probe.refreshMode = environment.RefreshMode;
+            probe.timeSlicingMode = environment.TimeSlicingMode;
+        }
+#endif
+
+        if (environment.State != ReflectionProbeState.On) return;
+
+        if (environment.RefreshMode == ReflectionProbeRefreshMode.EveryFrame)
+        {
+            probe.RenderProbe();
+            //DynamicGI.UpdateEnvironment();
+            return;
+        }
+
+        if (environment.RefreshMode != ReflectionProbeRefreshMode.ViaScripting) return;
+
+        environment.TimeSinceLastProbeUpdate += deltaTime;
+
+        if (environment.TimeSinceLastProbeUpdate >= environment.ProbeRefreshInterval)
+        {
+            probe.RenderProbe();
+            //DynamicGI.UpdateEnvironment();
+            environment.TimeSinceLastProbeUpdate = 0;
+        }
     }
 }

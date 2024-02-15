@@ -2,6 +2,7 @@
     "name": "Hydrolex.Skybox.Tests",
     "rootNamespace": "",
     "references": [
+        "GUID:9c318cfefe2543b498c24cf3ab0b4902",
         "GUID:e0cd26848372d4e5c891c569017e11f1",
         "GUID:734d92eba21c94caba915361bd5ac177",
         "GUID:d8b63aba1907145bea998dd612889d6b",

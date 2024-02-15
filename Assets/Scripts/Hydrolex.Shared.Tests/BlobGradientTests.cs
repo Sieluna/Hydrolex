@@ -9,33 +9,37 @@ public class BlobGradientTests
     {
         get
         {
-            yield return new TestCaseData(
-                new GradientColorKey[]
+            yield return new TestCaseData(new object[]
                 {
-                    new(Color.red, 0f),
-                    new(Color.blue, 1f)
-                },
-                new GradientAlphaKey[]
-                {
-                    new(1f, 0f),
-                    new(0f, 1f)
-                }
-            ).SetName("MidpointRedToBlueFadeOut");
+                    new GradientColorKey[]
+                    {
+                        new(Color.red, 0f),
+                        new(Color.blue, 1f)
+                    },
+                    new GradientAlphaKey[]
+                    {
+                        new(1f, 0f),
+                        new(0f, 1f)
+                    }
+                })
+                .SetName("MidpointRedToBlueFadeOut");
 
-            yield return new TestCaseData(
-                new GradientColorKey[]
+            yield return new TestCaseData(new object[]
                 {
-                    new(new Color(1.0f, 1.0f, 1.0f), 0.25f),
-                    new(new Color(0.0f, 0.0f, 0.0f), 0.35f),
-                    new(new Color(0.0f, 0.0f, 0.0f), 0.65f),
-                    new(new Color(1.0f, 1.0f, 1.0f), 0.75f),
-                },
-                new GradientAlphaKey[]
-                {
-                    new(1f, 0f),
-                    new(0f, 1f)
-                }
-            ).SetName("OneFourthWhiteBlackFadeInOut");
+                    new GradientColorKey[]
+                    {
+                        new(new Color(1.0f, 1.0f, 1.0f), 0.25f),
+                        new(new Color(0.0f, 0.0f, 0.0f), 0.35f),
+                        new(new Color(0.0f, 0.0f, 0.0f), 0.65f),
+                        new(new Color(1.0f, 1.0f, 1.0f), 0.75f),
+                    },
+                    new GradientAlphaKey[]
+                    {
+                        new(1f, 0f),
+                        new(0f, 1f)
+                    }
+                })
+                .SetName("OneFourthWhiteBlackFadeInOut");
         }
     }
 
@@ -51,7 +55,7 @@ public class BlobGradientTests
             var expectedColor = unityGradient.Evaluate(time);
             var actualColor = blobGradientReference.Value.Evaluate(time);
 
-            AssertColorEqual(expectedColor, actualColor, 1E-6f, $"Color mismatch at time {time}");
+            AssertColorEqual(expectedColor, actualColor, 1e-6f, $"Color mismatch at time {time}");
         }
     }
 

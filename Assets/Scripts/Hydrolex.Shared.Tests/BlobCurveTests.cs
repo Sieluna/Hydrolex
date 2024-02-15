@@ -9,16 +9,14 @@ public class BlobCurveTests
     {
         get
         {
-            yield return new TestCaseData(
-                new Keyframe[]
+            yield return new TestCaseData(new Keyframe[]
                 {
                     new(0, 0),
                     new(1, 1)
-                }
-            ).SetName("LinerShapeCurve");
+                })
+                .SetName("Liner shape curve");
 
-            yield return new TestCaseData(
-                new Keyframe[]
+            yield return new TestCaseData(new Keyframe[]
                 {
                     new(0.00f, 0.0f),
                     new(0.25f, 0.0f),
@@ -29,8 +27,8 @@ public class BlobCurveTests
                     new(0.70f, 5.0f),
                     new(0.75f, 0.0f),
                     new(1.00f, 0.0f)
-                }
-            ).SetName("CatShapeCurve");
+                })
+                .SetName("Cat shape curve");
         }
     }
 
@@ -46,7 +44,7 @@ public class BlobCurveTests
             var expectedValue = unityCurve.Evaluate(time);
             var actualValue = blobCurveReference.Value.Evaluate(time);
 
-            Assert.AreEqual(expectedValue, actualValue, 1E-6f, $"At time {time}, UnityCurve: {expectedValue}, BlobCurve: {actualValue}, Difference: {Mathf.Abs(expectedValue - actualValue)}");
+            Assert.AreEqual(expectedValue, actualValue, 1e-6f, $"At time {time}, UnityCurve: {expectedValue}, BlobCurve: {actualValue}, Difference: {Mathf.Abs(expectedValue - actualValue)}");
         }
     }
 }

@@ -30,7 +30,7 @@ public partial struct WeatherSystem : ISystem
         }
     }
 
-    private void EvaluateScattering(ref Skybox skybox, ref WeatherBlob weather, float curveTime, float gradientTime)
+    private void EvaluateScattering(ref Skybox skybox, ref BlobWeather weather, float curveTime, float gradientTime)
     {
         skybox.MolecularDensity = weather.MolecularDensity * 5.09f;
         skybox.Rayleigh = weather.RayleighCurve.Evaluate(curveTime) * 10.0f;
@@ -39,7 +39,7 @@ public partial struct WeatherSystem : ISystem
         skybox.MieColor = weather.MieGradientColor.Evaluate(gradientTime);
     }
 
-    private void EvaluateCelestium(ref Skybox skybox, ref WeatherBlob weather, float curveTime)
+    private void EvaluateCelestium(ref Skybox skybox, ref BlobWeather weather, float curveTime)
     {
         skybox.SunTextureIntensity = weather.SunTextureIntensity;
         skybox.MoonTextureIntensity = weather.MoonTextureIntensity;
@@ -47,7 +47,7 @@ public partial struct WeatherSystem : ISystem
         skybox.MilkyWayIntensity = weather.MilkyWayIntensityCurve.Evaluate(curveTime);
     }
 
-    private void EvaluateEnvironment(ref Environment environment, ref WeatherBlob weather, float curveTime, float gradientTime)
+    private void EvaluateEnvironment(ref Environment environment, ref BlobWeather weather, float curveTime, float gradientTime)
     {
         environment.LightIntensity = weather.LightIntensityCurve.Evaluate(curveTime);
         environment.LightColor = weather.LightGradientColor.Evaluate(gradientTime);
@@ -58,7 +58,7 @@ public partial struct WeatherSystem : ISystem
         environment.GroundSkyColor = weather.GroundSkyGradientColor.Evaluate(gradientTime);
     }
 
-    private void EvaluateClouds(ref Skybox skybox, ref WeatherBlob weather, float gradientTime)
+    private void EvaluateClouds(ref Skybox skybox, ref BlobWeather weather, float gradientTime)
     {
         skybox.CloudsAltitude = weather.CloudsAltitude * 15.0f;
         skybox.CloudsDirection = weather.CloudsDirection;

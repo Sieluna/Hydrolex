@@ -1,6 +1,6 @@
 ﻿using Unity.Entities;
 
-public struct WeatherBlob
+public struct BlobWeather
 {
     public float MolecularDensity;
     public BlobCurve RayleighCurve;
@@ -31,7 +31,7 @@ public struct WeatherBlob
 
 public struct WeatherPool
 {
-    public BlobArray<WeatherBlob> Weathers;
+    public BlobArray<BlobWeather> Weathers;
     public BlobArray<BlobString> Names;
 }
 

@@ -2,7 +2,11 @@ fileFormatVersion: 2
 guid: 2f764f6fa5694ffc9cf9861f05f8570e
 ShaderImporter:
   externalObjects: {}
-  defaultTextures: []
+  defaultTextures:
+  - _SunTexture: {fileID: 2800000, guid: 86b0494e1e7c55e4ba149503bf8bdec6, type: 3}
+  - _MoonTexture: {fileID: 2800000, guid: ddb33d8a07127b741ba1685584b37524, type: 3}
+  - _CloudTexture: {fileID: 2800000, guid: be3e5567527e31a45b1c75bc5e46998c, type: 3}
+  - _StarfieldTexture: {fileID: 8900000, guid: 6884fee4fe786fb49af2f0eaf3dcb8cd, type: 3}
   nonModifiableTextures: []
   userData: 
   assetBundleName: 

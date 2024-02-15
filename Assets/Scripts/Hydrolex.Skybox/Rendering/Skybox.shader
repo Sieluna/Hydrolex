@@ -2,14 +2,11 @@
 {
     Properties
     {
-        [Toggle(_ENABLE_CLOUD)]_EnableCloud("Enable Cloud", Float) = 0
+        [Toggle(_ENABLE_CLOUD)] _EnableCloud("Enable Cloud", Float) = 0.0
 
         _SunTexture("Sun Texture", 2D) = "white" {}
-
         _MoonTexture("Moon Texture", 2D) = "white" {}
-
         _CloudTexture("Cloud Texture", 2D) = "white" {}
-
         _StarfieldTexture("Starfield Texture", Cube) = "gray" {}
     }
     SubShader
@@ -39,6 +36,8 @@
         // [#0 Pass - Forward]
         Pass
         {
+            Name "Skybox"
+
             // -------------------------------------
             // Render State Commands
             Fog { Mode Off }
@@ -52,13 +51,6 @@
             // Shader Stages
             #pragma vertex vert
             #pragma fragment frag
-
-            //--------------------------------------
-            // Defines
-            #define Pi 3.1415926535
-            #define Pi316 0.0596831
-            #define Pi14 0.07957747
-            #define MieG float3(0.4375f, 1.5625f, 1.5f)
 
             // -------------------------------------
             // Includes
