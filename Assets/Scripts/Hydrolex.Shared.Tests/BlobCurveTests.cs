@@ -29,6 +29,14 @@ public class BlobCurveTests
                     new(1.00f, 0.0f)
                 })
                 .SetName("Cat shape curve");
+            
+            yield return new TestCaseData(new Keyframe[]
+                {
+                    new(1.0f, 1.0f),
+                    new(0.0f, 0.0f),
+                    new(0.5f, 0.5f)
+                })
+                .SetName("Unordered curve");
         }
     }
 

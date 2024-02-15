@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+﻿using System.Linq;
 using Unity.Collections;
 using Unity.Entities;
 using UnityEngine;
@@ -23,16 +23,22 @@ public static class BlobCurveUtilities
 
     public static void AllocateBlobCurve(ref this BlobBuilder builder, ref BlobCurve blobCurve, AnimationCurve curve)
     {
-        var sortedKeyframes = new List<Keyframe>(curve.keys);
-        sortedKeyframes.Sort((a, b) => a.time.CompareTo(b.time));
+        var sortedKeyframes = curve.keys.OrderBy(keyframe => keyframe.time).ToList();
 
         var keyframeBuilder = builder.Allocate(ref blobCurve.Keyframes, sortedKeyframes.Count);
         var soaTimesBuilder = builder.Allocate(ref blobCurve.Times, sortedKeyframes.Count);
 
         for (var i = 0; i < sortedKeyframes.Count; i++)
         {
-            keyframeBuilder[i] = sortedKeyframes[i];
-            soaTimesBuilder[i] = sortedKeyframes[i].time;
+            var keyframe = sortedKeyframes[i];
+            keyframeBuilder[i] = new KeyFrame
+            {
+                Time = keyframe.time,
+                Value = keyframe.value,
+                InTangent = keyframe.inTangent,
+                OutTangent = keyframe.outTangent
+            };
+            soaTimesBuilder[i] = keyframe.time;
         }
     }
 
