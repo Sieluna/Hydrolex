@@ -7,77 +7,7 @@ using Unity.Mathematics;
 using Unity.Physics;
 using Unity.Physics.Extensions;
 using Unity.Physics.Systems;
-using Unity.Rendering;
 using Unity.Transforms;
-
-[UpdateInGroup(typeof(InitializationSystemGroup))]
-[UpdateBefore(typeof(EndInitializationEntityCommandBufferSystem))]
-public partial struct FluidInitializeSystem : ISystem
-{
-    [BurstCompile]
-    public void OnCreate(ref SystemState state)
-    {
-        state.RequireForUpdate(SystemAPI.QueryBuilder().WithAny<Fluid, Boundary>().Build());
-    }
-
-    [BurstCompile]
-    public void OnUpdate(ref SystemState state)
-    {
-        var ecb = SystemAPI.GetSingletonRW<EndSimulationEntityCommandBufferSystem.Singleton>().ValueRW
-            .CreateCommandBuffer(state.WorldUnmanaged);
-
-        foreach (var (localToWorld, bounds, fluid, entity) in SystemAPI
-                     .Query<LocalToWorld, RenderBounds, Fluid>()
-                     .WithAll<Fluid>()
-                     .WithEntityAccess())
-        {
-            CreateParticles(localToWorld.Value,
-                bounds.Value,
-                state.EntityManager.GetComponentData<FluidParticle>(fluid.Prefab).Radius,
-                ecb,
-                fluid.Prefab);
-
-            ecb.DestroyEntity(entity);
-        }
-
-        foreach (var (localToWorld, bounds, boundary, entity) in SystemAPI
-                     .Query<LocalToWorld, RenderBounds, Boundary>()
-                     .WithAll<Boundary>()
-                     .WithEntityAccess())
-        {
-            CreateParticles(localToWorld.Value,
-                bounds.Value,
-                state.EntityManager.GetComponentData<BoundaryParticle>(boundary.Prefab).Radius,
-                ecb,
-                boundary.Prefab);
-
-            ecb.RemoveComponent<Boundary>(entity);
-        }
-    }
-
-    private static void CreateParticles(float4x4 localToWorld, AABB bounds, float radius, EntityCommandBuffer ecb, Entity prefab)
-    {
-        var scale = new float3(math.length(localToWorld.c0.xyz), math.length(localToWorld.c1.xyz), math.length(localToWorld.c2.xyz));
-
-        var scaledRadius = radius / scale;
-        var numParticles = math.ceil(bounds.Size / (2 * scaledRadius));
-
-        for (var z = 0; z < numParticles.z; z++)
-        {
-            for (var y = 0; y < numParticles.y; y++)
-            {
-                for (var x = 0; x < numParticles.x; x++)
-                {
-                    var position = math.transform(localToWorld, new float3(x , y , z) * 2 * scaledRadius + bounds.Min + scaledRadius);
-
-                    var entity = ecb.Instantiate(prefab);
-
-                    ecb.SetComponent(entity, LocalTransform.FromPosition(position));
-                }
-            }
-        }
-    }
-}
 
 [UpdateInGroup(typeof(BeforePhysicsSystemGroup))]
 public partial struct FluidSPHSystem : ISystem
@@ -439,7 +369,7 @@ public partial struct FluidSPHSystem : ISystem
                                          math.pow(kernelRadius - distance, 2f)) * math.normalize(distanceVector);
 
                 // f_i^{visco} = \frac{\mu}{\rho_i}\Sigma{m_j(u_j - u_i)}\Delta^2W_{visco}
-                // where \Delta^2W_{visco}\Delta^2W_{visco} = \frac{45}{\pi h^6}(h - r)
+                // where \Delta^2W_{visco} = \frac{45}{\pi h^6}(h - r)
                 var viscosityComponent = viscosity / currentParticle.Density * neighborParticle.Mass *
                                          (neighborParticle.Velocity - currentParticle.Velocity) * 45f /
                                          (math.PI * math.pow(kernelRadius, 6f)) *

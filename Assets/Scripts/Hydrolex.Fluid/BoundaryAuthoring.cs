@@ -11,7 +11,7 @@ public class BoundaryAuthoring : MonoBehaviour
         {
             var entity = GetEntity(TransformUsageFlags.Dynamic);
 
-            AddComponent(entity,new Boundary {
+            AddComponent(entity, new Boundary {
                 Prefab = GetEntity(authoring.Prefab, TransformUsageFlags.Dynamic)
             });
         }

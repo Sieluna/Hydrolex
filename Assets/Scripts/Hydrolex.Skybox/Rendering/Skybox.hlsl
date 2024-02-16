@@ -157,8 +157,8 @@ SkyboxSurfaceData InitializeSurfaceData(Varyings input)
 float3 GetScatteringColor(SkyboxSurfaceData data)
 {
     // sun in scattering
-    float rayPhase = 2.0 + 0.5 * pow(data.sunCosTheta, 2.0);                     // Rayleigh phase function based on the Nielsen's paper.
-    float miePhase = MieG.x / pow(abs(MieG.y - MieG.z * data.sunCosTheta), 1.5); // The Mie phase function.
+    float rayPhase = 2.0 + 0.5 * pow(data.sunCosTheta, 2.0);                     // The Rayleigh phase function based on the Nielsen's paper.
+    float miePhase = MieG.x / pow(abs(MieG.y - MieG.z * data.sunCosTheta), 1.5); // The Henyey-Greenstein phase function.
     float3 BrTheta = Pi316 * _Rayleigh * rayPhase * _RayleighColor.rgb;
     float3 BmTheta = Pi14 * _Mie * miePhase * _MieColor.rgb * data.sunRise;
     float3 BrmTheta = (BrTheta + BmTheta) / (_Rayleigh + _Mie);
@@ -192,7 +192,7 @@ float3 GetSunBaseColor(SkyboxSurfaceData data, float3 sunPos)
 
 float3 GetMoonBaseColor(SkyboxSurfaceData data, float3 moonPos, out float moonMask)
 {
-    const float3 rayOrigin = float3(0.0, 0.0, 0.0);//_WorldSpaceCameraPos;
+    const float3 rayOrigin = float3(0.0, 0.0, 0.0); // _WorldSpaceCameraPos;
     const float3 rayDirection = data.viewDirection;
     const float3 moonPosition = _MoonDirection * 38400.0 * _MoonTextureSize;
     const float moonRadius = 17370.0;

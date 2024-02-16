@@ -111,13 +111,14 @@ public partial class SkyboxSystem : SystemBase
     public static float3 ComputeRayleigh(float3 wavelength, float molecularDensity)
     {
         var lambda = wavelength * 1e-9f;
+        var N = molecularDensity * 1E25f;
+
         const float n = 1.0003f; // Refractive index of air
         const float pn = 0.035f; // Depolarization factor for standard air.
-        const float n2 = n * n;
-        var N = molecularDensity * 1E25f;
-        var temp = (8.0f * math.PI * math.PI * math.PI * ((n2 - 1.0f) * (n2 - 1.0f))) / (3.0f * N) * ((6.0f + 3.0f * pn) / (6.0f - 7.0f * pn));
 
-        return temp / math.pow(lambda, 4.0f);
+        // Nishita‘s paper - rayleigh scattering
+        return 8.0f * math.pow(math.PI, 3.0f) * math.pow(n * n - 1.0f, 2.0f) / (3.0f * N * math.pow(lambda, 4.0f)) *
+               ((6.0f + 3.0f * pn) / (6.0f - 7.0f * pn));
     }
 
     /// <summary>
@@ -143,7 +144,7 @@ public partial class SkyboxSystem : SystemBase
     /// <returns></returns>
     public static float2 ComputeCloudPosition(float2 cloudsPosition, float cloudsDirection, float cloudsSpeed, float deltaTime)
     {
-        var dirRadians = math.radians(math.lerp(0f, 360f, cloudsDirection));
+        var dirRadians = math.radians(math.lerp(0f, 360f, cloudsDirection)) * 0.01745329f;
         var windDirection = new float2(math.sin(dirRadians), math.cos(dirRadians));
         var windSpeed = cloudsSpeed * 0.05f * deltaTime;
 

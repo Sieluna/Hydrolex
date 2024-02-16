@@ -57,7 +57,7 @@ public partial class EnvironmentSystem : SystemBase
     private void UpdateReflectionProbe(ReflectionProbe probe, Environment environment, float deltaTime)
     {
 #if UNITY_EDITOR
-        if (probe)
+        if (probe is not null)
         {
             probe.mode = ReflectionProbeMode.Realtime;
             probe.refreshMode = environment.RefreshMode;
@@ -65,7 +65,7 @@ public partial class EnvironmentSystem : SystemBase
         }
 #endif
 
-        if (environment.State != ReflectionProbeState.On) return;
+        if (probe is null && environment.State != ReflectionProbeState.On) return;
 
         if (environment.RefreshMode == ReflectionProbeRefreshMode.EveryFrame)
         {
