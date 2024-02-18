@@ -38,8 +38,6 @@ public partial class EnvironmentSystem : SystemBase
             light.intensity = environment.ValueRO.LightIntensity;
             light.color = environment.ValueRO.LightColor;
 
-            RenderSettings.sun ??= light;
-
             RenderSettings.ambientIntensity = environment.ValueRO.AmbientIntensity;
             RenderSettings.ambientLight = environment.ValueRO.AmbientSkyColor;
             RenderSettings.ambientSkyColor = environment.ValueRO.AmbientSkyColor;
@@ -65,7 +63,7 @@ public partial class EnvironmentSystem : SystemBase
         }
 #endif
 
-        if (probe is null && environment.State != ReflectionProbeState.On) return;
+        if (probe is null || environment.State != ReflectionProbeState.On) return;
 
         if (environment.RefreshMode == ReflectionProbeRefreshMode.EveryFrame)
         {

@@ -92,7 +92,7 @@ Material:
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _StarfieldTexture:
-        m_Texture: {fileID: 8900000, guid: 6884fee4fe786fb49af2f0eaf3dcb8cd, type: 3}
+        m_Texture: {fileID: 8900000, guid: 88c53d101c91f40499ae6cc0ea6b44fc, type: 3}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _SunTexture:
