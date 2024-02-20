@@ -5,13 +5,12 @@ using UnityEngine;
 public class SkyboxAuthoring : MonoBehaviour
 {
     [Header("Scattering")]
-    public float MolecularDensity = 2.55f;
+    public float MolecularDensity = 2.545f;
     public float3 Wavelength = new(680, 550, 450);
     public float Kr = 8.4f;
     public float Km = 1.2f;
     public float Rayleigh = 1.5f;
     public float Mie = 1.24f;
-    public float MieDistance = 0.1f;
     public float Scattering = 0.25f;
     public float Luminance = 1.0f;
     public float Exposure = 2.0f;
@@ -53,7 +52,6 @@ public class SkyboxAuthoring : MonoBehaviour
                 Km = authoring.Km,
                 Rayleigh = authoring.Rayleigh,
                 Mie = authoring.Mie,
-                MieDistance = authoring.MieDistance,
                 Scattering = authoring.Scattering,
                 Luminance = authoring.Luminance,
                 Exposure = authoring.Exposure,

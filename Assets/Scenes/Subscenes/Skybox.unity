@@ -593,7 +593,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 8a447f9871d34641902ea9a6707cfe8f, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  MolecularDensity: 2.55
+  MolecularDensity: 2.545
   Wavelength:
     x: 680
     y: 550

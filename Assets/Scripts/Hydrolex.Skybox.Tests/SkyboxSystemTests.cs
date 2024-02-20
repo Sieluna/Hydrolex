@@ -2,6 +2,7 @@
 using NUnit.Framework;
 using Unity.Mathematics;
 using Unity.Transforms;
+using UnityEngine;
 
 [TestFixture]
 public class SkyboxSystemTests
@@ -42,11 +43,11 @@ public class SkyboxSystemTests
         {
             yield return new TestCaseData(0.25f, 10.0f, 0.1f, 1)
                 .SetName("Initial state with 1 iterate")
-                .Returns((0.05f, 1.0f));
+                .Returns((0.00137f, 0.04998f));
 
-            yield return new TestCaseData(0.25f, 10.0f, 0.1f, 5)
-                .SetName("Initial state with 5 iterate")
-                .Returns((0.25f, 1.0f));
+            yield return new TestCaseData(0.25f, 10.0f, 0.1f, 10)
+                .SetName("Initial state with 10 iterate")
+                .Returns((0.01371f, 0.49981f));
         }
     }
 
@@ -69,9 +70,9 @@ public class SkyboxSystemTests
     }
 
     [Test, TestCaseSource(nameof(RayleighTestCases))]
-    public (float red, float green, float blue) ComputeRayleighTest(float3 wavelength, float molecularDensity)
+    public (float red, float green, float blue) ComputeRayleighCoefficientTest(float3 wavelength, float molecularDensity)
     {
-        var actual = SkyboxSystem.ComputeRayleigh(wavelength, molecularDensity);
+        var actual = SkyboxSystem.ComputeRayleighCoefficient(wavelength, molecularDensity);
 
         var round = math.round(actual * k_Tolerance) / k_Tolerance;
 
@@ -79,9 +80,9 @@ public class SkyboxSystemTests
     }
 
     [Test, TestCaseSource(nameof(MieTestCases))]
-    public (float red, float green, float blue) ComputeMieTest(float3 wavelength)
+    public (float red, float green, float blue) ComputeMieCoefficientTest(float3 wavelength)
     {
-        var actual = SkyboxSystem.ComputeMie(wavelength);
+        var actual = SkyboxSystem.ComputeMieCoefficient(wavelength);
 
         var round = math.round(actual * k_Tolerance) / k_Tolerance;
 
@@ -96,7 +97,7 @@ public class SkyboxSystemTests
         for (var i = 0; i < step; i++)
             position = SkyboxSystem.ComputeCloudPosition(position, direction, speed, deltaTime);
 
-        var round = math.round(position * k_Tolerance) / k_Tolerance;
+        var round = math.round(position * 10e4f) / 10e4f;
 
         return (round.x, round.y);
     }

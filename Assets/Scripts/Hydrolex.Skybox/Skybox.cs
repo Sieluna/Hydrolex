@@ -10,7 +10,6 @@ public struct Skybox : IComponentData
     public float Km;
     public float Rayleigh;
     public float Mie;
-    public float MieDistance;
     public float Scattering;
     public float Luminance;
     public float Exposure;

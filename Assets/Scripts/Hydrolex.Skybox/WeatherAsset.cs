@@ -69,10 +69,10 @@ public class WeatherAsset : ScriptableObject
     {
         keys = new Keyframe[]
         {
-            new(0.0f, 0.25f),
-            new(6.0f, 0.15f),
-            new(18.0f, 0.15f),
-            new(24.0f, 0.25f)
+            new(0.0f, 0.3125f),
+            new(6.0f, 0.3f),
+            new(18.0f, 0.3f),
+            new(24.0f, 0.3125f)
         }
     };
 

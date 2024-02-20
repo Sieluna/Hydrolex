@@ -2,10 +2,7 @@
 
 #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
 
-#define Pi 3.1415926535
-#define Pi316 0.0596831
-#define Pi14 0.07957747
-#define MieG float3(0.4375f, 1.5625f, 1.5f)
+#include "SkyboxInput.hlsl"
 
 // note:
 // subfix OS means object spaces    (e.g. positionOS = position object space)
@@ -51,11 +48,8 @@ uniform float4x4 _StarfieldMatrix;
 uniform float4x4 _StarFieldRotationMatrix;
 
 // scattering
-uniform float   _FogScatteringScale;
-uniform float  _Kr;
-uniform float  _Km;
-uniform float3 _Rayleigh;
-uniform float3 _Mie;
+uniform float4 _Rayleigh;
+uniform float4 _Mie;
 uniform float  _Scattering;
 uniform float  _Luminance;
 uniform float  _Exposure;
@@ -65,20 +59,16 @@ uniform float4 _ScatteringColor;
 
 // Outer Space
 uniform float  _SunTextureSize;
-uniform float  _SunTextureIntensity;
-uniform float4 _SunTextureColor;
+uniform float4 _SunTextureData; // color + intensity
 uniform float  _MoonTextureSize;
-uniform float  _MoonTextureIntensity;
-uniform float4 _MoonTextureColor;
+uniform float4 _MoonTextureData; // color + intensity
 uniform float  _StarsIntensity;
 uniform float  _MilkyWayIntensity;
 uniform float4 _StarFieldColor;
 
 // Clouds
 #ifdef _ENABLE_CLOUD
-uniform float  _CloudAltitude;
-uniform float2 _CloudDirection;
-uniform float  _CloudDensity;
+uniform float4 _CloudData; // uv + altitude + density
 uniform float4 _CloudColor1;
 uniform float4 _CloudColor2;
 uniform float  _ThunderLightningEffect;
@@ -91,7 +81,7 @@ struct SkyboxSurfaceData
     float moonCosTheta;
     float sunRise;
     float moonRise;
-    float3 finalExtinction;
+    float3 extinction;
     float3 horizonExtinction;
     float3 moonExtinction;
     float3 sunExtinction;
@@ -110,9 +100,9 @@ Varyings vert(Attributes input)
     output.worldPos = normalize(mul((float3x3)_UpDirectionMatrix, output.worldPos));
 
 #ifdef _ENABLE_CLOUD
-    float3 cloudPos = normalize(float3(output.worldPos.x, output.worldPos.y * _CloudAltitude, output.worldPos.z));
-    output.cloudUv.xy = cloudPos.xz * 0.25 - 0.005 + _CloudDirection;
-    output.cloudUv.zw = cloudPos.xz * 0.35 -0.0065 + _CloudDirection;
+    float3 cloudPos = normalize(float3(output.worldPos.x, output.worldPos.y * _CloudData.z, output.worldPos.z));
+    output.cloudUv.xy = cloudPos.xz * 0.25 - 0.005 + _CloudData.xy;
+    output.cloudUv.zw = cloudPos.xz * 0.35 -0.0065 + _CloudData.xy;
 #endif
 
     output.sunPos = mul((float3x3)_SunMatrix, input.positionOS.xyz) * _SunTextureSize;
@@ -140,16 +130,12 @@ SkyboxSurfaceData InitializeSurfaceData(Varyings input)
     output.sunRise = saturate(dot(float3(0.0, 500.0, 0.0), _SunDirection) / r);
     output.moonRise = saturate(dot(float3(0.0, 500.0, 0.0), _MoonDirection) / r);
 
-    const float zenith = acos(saturate(dot(float3(0.0, 1.0, 0.0), output.viewDirection)));
-    const float z = cos(zenith) + 0.15 * pow(abs(93.885 - ((zenith * 180.0) / Pi)), -1.253);
-    const float SR = _Kr / z;
-    const float SM = _Km / z;
+    output.extinction = CalculateFinalExtinction(output.viewDirection, _Rayleigh.w, _Rayleigh.xyz, _Mie.w, _Mie.xyz);
 
     const float sunset = clamp(dot(float3(0.0, 1.0, 0.0), _SunDirection), 0.0, 0.5);
-    output.finalExtinction = exp(-(_Rayleigh * SR + _Mie * SM));
-    output.horizonExtinction = saturate((output.viewDirection.y) * 1000.0) * output.finalExtinction.b;
-    output.moonExtinction = saturate((output.viewDirection.y) * 2.5);
-    output.sunExtinction = lerp(output.finalExtinction, (1.0 - output.finalExtinction), sunset);
+    output.horizonExtinction = saturate(output.viewDirection.y * 1000.0) * output.extinction.b;
+    output.moonExtinction = saturate(output.viewDirection.y * 2.5);
+    output.sunExtinction = lerp(output.extinction, 1.0 - output.extinction, sunset);
 
     return output;
 }
@@ -157,26 +143,26 @@ SkyboxSurfaceData InitializeSurfaceData(Varyings input)
 float3 GetScatteringColor(SkyboxSurfaceData data)
 {
     // sun in scattering
-    float rayPhase = 2.0 + 0.5 * pow(data.sunCosTheta, 2.0);                     // The Rayleigh phase function based on the Nielsen's paper.
-    float miePhase = MieG.x / pow(abs(MieG.y - MieG.z * data.sunCosTheta), 1.5); // The Henyey-Greenstein phase function.
-    float3 BrTheta = Pi316 * _Rayleigh * rayPhase * _RayleighColor.rgb;
-    float3 BmTheta = Pi14 * _Mie * miePhase * _MieColor.rgb * data.sunRise;
-    float3 BrmTheta = (BrTheta + BmTheta) / (_Rayleigh + _Mie);
-    float3 sunInScatter = BrmTheta * data.sunExtinction * _Scattering * (1.0 - data.finalExtinction);
+    float rayPhase = GetRayleighPhase(data.sunCosTheta);
+    float miePhase = GetHenyeyGreensteinPhase(data.sunCosTheta, G);
+    float3 BrTheta = _Rayleigh.xyz * rayPhase * _RayleighColor.rgb;
+    float3 BmTheta = _Mie.xyz * miePhase * _MieColor.rgb * data.sunRise;;
+    float3 BrmTheta = (BrTheta + BmTheta) / (_Rayleigh.xyz + _Mie.xyz);
+    float3 sunInScatter = BrmTheta * data.sunExtinction * _Scattering * (1.0 - data.extinction);
     sunInScatter *= data.sunRise;
 
     // moon in scattering
-    rayPhase = 2.0 + 0.5 * pow(data.moonCosTheta, 2.0);
-    miePhase = MieG.x / pow(abs(MieG.y - MieG.z * data.moonCosTheta), 1.5);
-    BrTheta  = Pi316 * _Rayleigh * rayPhase * _RayleighColor.rgb;
-    BmTheta  = Pi14  * _Mie * miePhase * _MieColor.rgb * data.moonRise;
-    BrmTheta = (BrTheta + BmTheta) / (_Rayleigh + _Mie);
-    float3 moonInScatter = BrmTheta * (1.0 - data.finalExtinction) * _Scattering * 0.1 * (1.0 - data.finalExtinction);
+    rayPhase = GetRayleighPhase(data.moonCosTheta);
+    miePhase = GetHenyeyGreensteinPhase(data.moonCosTheta, G);
+    BrTheta = _Rayleigh.xyz * rayPhase * _RayleighColor.rgb;
+    BmTheta = _Mie.xyz * miePhase * _MieColor.rgb * data.moonRise;
+    BrmTheta = (BrTheta + BmTheta) / (_Rayleigh.xyz + _Mie.xyz);
+    float3 moonInScatter = BrmTheta * (1.0 - data.extinction) * _Scattering * 0.1 * (1.0 - data.extinction);
     moonInScatter *= 1.0 - data.sunRise;                                         // Diminish moon's effect when the sun is up.
 
     // default night sky
-    BrmTheta = BrTheta / (_Rayleigh + _Mie);
-    const float3 skyLuminance = BrmTheta * _ScatteringColor.rgb * _Luminance * (1.0 - data.finalExtinction);
+    BrmTheta = BrTheta / (_Rayleigh.xyz + _Mie.xyz);
+    const float3 skyLuminance = BrmTheta * _ScatteringColor.rgb * _Luminance * (1.0 - data.extinction);
 
     // combine scattering
     return sunInScatter + moonInScatter + skyLuminance;
@@ -185,9 +171,9 @@ float3 GetScatteringColor(SkyboxSurfaceData data)
 float3 GetSunBaseColor(SkyboxSurfaceData data, float3 sunPos)
 {
     // Sun texture
-    float3 sunTexture = SAMPLE_TEXTURE2D(_SunTexture, sampler_SunTexture, sunPos.xy + 0.5).rgb * _SunTextureColor.rgb * _SunTextureIntensity;
+    const float3 sunTexture = SAMPLE_TEXTURE2D(_SunTexture, sampler_SunTexture, sunPos.xy + 0.5).rgb * _SunTextureData.rgb * _SunTextureData.a;
 
-    return pow(sunTexture, 2.0) * data.finalExtinction.b * saturate(data.sunCosTheta);
+    return pow(sunTexture, 2.0) * data.extinction.b * saturate(data.sunCosTheta);
 }
 
 float3 GetMoonBaseColor(SkyboxSurfaceData data, float3 moonPos, out float moonMask)
@@ -207,13 +193,13 @@ float3 GetMoonBaseColor(SkyboxSurfaceData data, float3 moonPos, out float moonMa
     const float intersectionDistance = -b - sqrt(abs(discriminant));
 
     float4 moonTexture = saturate(SAMPLE_TEXTURE2D(_MoonTexture, sampler_MoonTexture, moonPos.xy + 0.5) * data.moonCosTheta);
-    moonMask = 1.0 - moonTexture.a * _MoonTextureIntensity;
+    moonMask = 1.0 - moonTexture.a * _MoonTextureData.a;
 
     if (step(0.0, min(intersectionDistance, discriminant)) > 0.0)
     {
         const float3 normalDirection = normalize(-moonPosition + (rayOrigin + rayDirection * intersectionDistance));
         const float moonSphere = max(dot(normalDirection, _SunDirection), 0.0) * moonTexture.a * 2.0;
-        moonColor = moonTexture.rgb * moonSphere * _MoonTextureColor.rgb * _MoonTextureIntensity * data.moonExtinction;
+        moonColor = moonTexture.rgb * moonSphere * _MoonTextureData.rgb * _MoonTextureData.a * data.moonExtinction;
     }
 
     return moonColor;
@@ -259,12 +245,12 @@ float4 frag(Varyings input) : SV_Target
     float  cloudAlpha = 1.0;
     float mixCloud = 0.0;
 
-    if(_CloudDensity < 25)
+    if(_CloudData.w < 25)
     {
         const float noise1 = pow(abs(tex1.g + tex2.g), 0.1);
         const float noise2 = pow(abs(tex2.b * tex1.r), 0.25);
 
-        cloudAlpha = saturate(pow(noise1 * noise2, _CloudDensity));
+        cloudAlpha = saturate(pow(noise1 * noise2, _CloudData.w));
         float3 cloud1 = lerp(_CloudColor1.rgb, float3(0.0, 0.0, 0.0), noise1);
         float3 cloud2 = lerp(_CloudColor1.rgb, _CloudColor2.rgb, noise2) * 2.5;
         cloud = lerp(cloud1, cloud2, noise1 * noise2);
@@ -273,16 +259,10 @@ float4 frag(Varyings input) : SV_Target
 
         cloud += cloudLightning * _ThunderLightningEffect;
         cloudAlpha = 1.0 - cloudAlpha;
-        mixCloud = saturate((surfaceData.viewDirection.y - 0.1) * pow(noise1 * noise2, _CloudDensity));
+        mixCloud = saturate((surfaceData.viewDirection.y - 0.1) * pow(noise1 * noise2, _CloudData.w));
     }
 
     float3 output = scattering + (sunTexture + moonColor + starfield) * cloudAlpha;
-
-    // tone mapping
-    output = saturate(1.0 - exp(-_Exposure * output));
-
-    // color correction.
-    output = pow(abs(output), 2.2);
 
     // apply clouds
     output = lerp(output, cloud, mixCloud);
@@ -291,12 +271,6 @@ float4 frag(Varyings input) : SV_Target
 
     // combine color sources
     float3 output = scattering + (sunTexture + moonColor + starfield);
-
-    // tone mapping
-    output = saturate(1.0 - exp(-_Exposure * output));
-
-    // color correction.
-    output = pow(abs(output), 2.2);
 
 #endif
 

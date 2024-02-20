@@ -15,11 +15,8 @@ public partial class SkyboxSystem : SystemBase
     private static readonly int s_StarfieldMatrix = Shader.PropertyToID("_StarfieldMatrix");
 
     // Scattering
-    private static readonly int s_Kr = Shader.PropertyToID("_Kr");
-    private static readonly int s_Km = Shader.PropertyToID("_Km");
     private static readonly int s_Rayleigh = Shader.PropertyToID("_Rayleigh");
     private static readonly int s_Mie = Shader.PropertyToID("_Mie");
-    private static readonly int s_MieDistance = Shader.PropertyToID("_MieDepth");
     private static readonly int s_Scattering = Shader.PropertyToID("_Scattering");
     private static readonly int s_Luminance = Shader.PropertyToID("_Luminance");
     private static readonly int s_Exposure = Shader.PropertyToID("_Exposure");
@@ -29,20 +26,16 @@ public partial class SkyboxSystem : SystemBase
 
     // Outer space
     private static readonly int s_SunTextureSize = Shader.PropertyToID("_SunTextureSize");
-    private static readonly int s_SunTextureIntensity = Shader.PropertyToID("_SunTextureIntensity");
-    private static readonly int s_SunTextureColor = Shader.PropertyToID("_SunTextureColor");
+    private static readonly int s_SunTextureData = Shader.PropertyToID("_SunTextureData");
     private static readonly int s_MoonTextureSize = Shader.PropertyToID("_MoonTextureSize");
-    private static readonly int s_MoonTextureIntensity = Shader.PropertyToID("_MoonTextureIntensity");
-    private static readonly int s_MoonTextureColor = Shader.PropertyToID("_MoonTextureColor");
+    private static readonly int s_MoonTextureData = Shader.PropertyToID("_MoonTextureData");
     private static readonly int s_StarsIntensity = Shader.PropertyToID("_StarsIntensity");
     private static readonly int s_MilkyWayIntensity = Shader.PropertyToID("_MilkyWayIntensity");
     private static readonly int s_StarFieldColor = Shader.PropertyToID("_StarFieldColor");
     private static readonly int s_StarFieldRotation = Shader.PropertyToID("_StarFieldRotationMatrix");
 
     // Clouds
-    private static readonly int s_CloudAltitude = Shader.PropertyToID("_CloudAltitude");
-    private static readonly int s_CloudDirection = Shader.PropertyToID("_CloudDirection");
-    private static readonly int s_CloudDensity = Shader.PropertyToID("_CloudDensity");
+    private static readonly int s_CloudData = Shader.PropertyToID("_CloudData");
     private static readonly int s_CloudColor1 = Shader.PropertyToID("_CloudColor1");
     private static readonly int s_CloudColor2 = Shader.PropertyToID("_CloudColor2");
 
@@ -68,11 +61,8 @@ public partial class SkyboxSystem : SystemBase
             RenderSettings.skybox.SetMatrix(s_StarfieldMatrix, ComputeWorldToLocalMatrix(sunTransform));
 
             // Scattering
-            RenderSettings.skybox.SetFloat(s_Kr, skybox.ValueRO.Kr * 1000f);
-            RenderSettings.skybox.SetFloat(s_Km, skybox.ValueRO.Km * 1000f);
-            RenderSettings.skybox.SetVector(s_Rayleigh, new float4(ComputeRayleigh(skybox.ValueRO.Wavelength, skybox.ValueRO.MolecularDensity) * skybox.ValueRO.Rayleigh, 0));
-            RenderSettings.skybox.SetVector(s_Mie, new float4(ComputeMie(skybox.ValueRO.Wavelength) * skybox.ValueRO.Mie, 0));
-            RenderSettings.skybox.SetFloat(s_MieDistance, skybox.ValueRO.MieDistance);
+            RenderSettings.skybox.SetVector(s_Rayleigh, new float4(ComputeRayleighCoefficient(skybox.ValueRO.Wavelength, skybox.ValueRO.MolecularDensity) * skybox.ValueRO.Rayleigh, skybox.ValueRO.Kr * 1000f));
+            RenderSettings.skybox.SetVector(s_Mie, new float4(ComputeMieCoefficient(skybox.ValueRO.Wavelength) * skybox.ValueRO.Mie, skybox.ValueRO.Km * 1000f));
             RenderSettings.skybox.SetFloat(s_Scattering, skybox.ValueRO.Scattering * 60f);
             RenderSettings.skybox.SetFloat(s_Luminance, skybox.ValueRO.Luminance);
             RenderSettings.skybox.SetFloat(s_Exposure, skybox.ValueRO.Exposure);
@@ -82,11 +72,9 @@ public partial class SkyboxSystem : SystemBase
 
             // Outer space
             RenderSettings.skybox.SetFloat(s_SunTextureSize, skybox.ValueRO.SunTextureSize);
-            RenderSettings.skybox.SetFloat(s_SunTextureIntensity, skybox.ValueRO.SunTextureIntensity);
-            RenderSettings.skybox.SetColor(s_SunTextureColor, skybox.ValueRO.SunTextureColor);
+            RenderSettings.skybox.SetVector(s_SunTextureData, new float4(GetRGB(skybox.ValueRO.SunTextureColor), skybox.ValueRO.SunTextureIntensity));
             RenderSettings.skybox.SetFloat(s_MoonTextureSize, skybox.ValueRO.MoonTextureSize);
-            RenderSettings.skybox.SetFloat(s_MoonTextureIntensity, skybox.ValueRO.MoonTextureIntensity);
-            RenderSettings.skybox.SetColor(s_MoonTextureColor, skybox.ValueRO.MoonTextureColor);
+            RenderSettings.skybox.SetVector(s_MoonTextureData, new float4(GetRGB(skybox.ValueRO.MoonTextureColor), skybox.ValueRO.MoonTextureIntensity));
             RenderSettings.skybox.SetFloat(s_StarsIntensity, skybox.ValueRO.StarsIntensity);
             RenderSettings.skybox.SetFloat(s_MilkyWayIntensity, skybox.ValueRO.MilkyWayIntensity);
             RenderSettings.skybox.SetColor(s_StarFieldColor, skybox.ValueRO.StarfieldColor);
@@ -94,44 +82,50 @@ public partial class SkyboxSystem : SystemBase
 
             // Clouds
             skybox.ValueRW.CloudsPosition = ComputeCloudPosition(skybox.ValueRO.CloudsPosition, skybox.ValueRO.CloudsDirection, skybox.ValueRO.CloudsSpeed, SystemAPI.Time.DeltaTime);
-            RenderSettings.skybox.SetFloat(s_CloudAltitude, skybox.ValueRO.CloudsAltitude);
-            RenderSettings.skybox.SetVector(s_CloudDirection, new float4(skybox.ValueRO.CloudsPosition, 0, 0));
-            RenderSettings.skybox.SetFloat(s_CloudDensity, Mathf.Lerp(25.0f, 0.0f, skybox.ValueRO.CloudsDensity));
+            RenderSettings.skybox.SetVector(s_CloudData, new float4(skybox.ValueRO.CloudsPosition, skybox.ValueRO.CloudsAltitude, Mathf.Lerp(25.0f, 0.0f, skybox.ValueRO.CloudsDensity)));
             RenderSettings.skybox.SetVector(s_CloudColor1, skybox.ValueRO.CloudsColor1);
             RenderSettings.skybox.SetVector(s_CloudColor2, skybox.ValueRO.CloudsColor2);
         }
     }
 
+    private static float3 GetRGB(Color color) => new(color.r, color.g, color.b);
+
     /// <summary>
-    /// Total rayleigh computation.
+    /// Total scattering coefficients for Rayleigh scattering for molecules.
+    /// `"A Practical Analytic Model for Daylight" Preetham et al.`
     /// </summary>
     /// <param name="wavelength"></param>
     /// <param name="molecularDensity"></param>
     /// <returns></returns>
-    public static float3 ComputeRayleigh(float3 wavelength, float molecularDensity)
+    public static float3 ComputeRayleighCoefficient(float3 wavelength, float molecularDensity = 2.545f)
     {
         var lambda = wavelength * 1e-9f;
-        var N = molecularDensity * 1E25f;
+        var N = molecularDensity * 1e25f;
 
-        const float n = 1.0003f; // Refractive index of air
-        const float pn = 0.035f; // Depolarization factor for standard air.
+        const float n = 1.0003f; // Refractive index of air(1.0003 in the visible spectrum)
+        const float pn = 0.035f; // Depolarization factor(0.035 standard for air)
 
-        // Nishita‘s paper - rayleigh scattering
         return 8.0f * math.pow(math.PI, 3.0f) * math.pow(n * n - 1.0f, 2.0f) / (3.0f * N * math.pow(lambda, 4.0f)) *
                ((6.0f + 3.0f * pn) / (6.0f - 7.0f * pn));
     }
 
     /// <summary>
-    /// Total mie computation.
+    /// Total scattering coefficients for Mie scattering for haze.
+    /// `"A Practical Analytic Model for Daylight" Preetham et al.`
     /// </summary>
     /// <param name="wavelength"></param>
+    /// <param name="turbidity"></param>
     /// <returns></returns>
-    public static float3 ComputeMie(float3 wavelength)
+    public static float3 ComputeMieCoefficient(float3 wavelength, float turbidity = 5.0f)
     {
-        const float c = (0.6544f * 5.0f - 0.6510f) * 10f * 1e-9f;
-        var k = new float3(686.0f, 678.0f, 682.0f);
+        var lambda = wavelength * 1e-9f;
 
-        return 434.0f * c * math.PI * math.pow((4.0f * math.PI) / wavelength, 2.0f) * k;
+        var c = (0.6544f * turbidity - 0.6510f) * 1e-16f; // concentration factor
+        // A poly - 3 curve fit for K only between [380nm - 780nm]
+        var K = 5.343428e17f * math.pow(lambda, 3.0f) - 1.167102e12f * math.pow(lambda, 2.0f) + 8.895071e5f * lambda + 4.526041e-1f;
+        var v = 4.0f; // Junge's exponent
+
+        return 0.434f * c * math.PI * math.pow((2.0f * math.PI) / lambda, v - 2.0f) * K * 1e-4f;
     }
 
     /// <summary>
