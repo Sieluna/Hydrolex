@@ -15,7 +15,7 @@ public partial struct CelestiumSystem : ISystem
     [BurstCompile]
     public void OnUpdate(ref SystemState state)
     {
-        foreach (var (celestial, time, entity) in SystemAPI.Query<RefRW<Celestium>, Time>().WithEntityAccess())
+        foreach (var (celestial, time, entity) in SystemAPI.Query<RefRW<Celestium>, RefRO<Time>>().WithEntityAccess())
         {
             ref var sunTransform = ref SystemAPI.GetComponentRW<LocalTransform>(celestial.ValueRW.SunTransform).ValueRW;
             ref var moonTransform = ref SystemAPI.GetComponentRW<LocalTransform>(celestial.ValueRW.MoonTransform).ValueRW;
@@ -24,7 +24,7 @@ public partial struct CelestiumSystem : ISystem
             switch (celestial.ValueRO.SimulationType)
             {
                 case CelestiumSimulation.Simple:
-                    sunTransform.Rotation = GetChimericalSunDirection(celestial.ValueRO, time.Timeline);
+                    sunTransform.Rotation = GetChimericalSunDirection(celestial.ValueRO, time.ValueRO.Timeline);
                     celestial.ValueRW.SunLocalDirection = transform.InverseTransformDirection(sunTransform.Forward());
 
                     moonTransform.Rotation = GetChimericalMoonDirection(celestial.ValueRO.SunLocalDirection);

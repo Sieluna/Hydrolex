@@ -190,6 +190,3 @@ The choice of **time step** is crucial for the stability and accuracy of the sim
 Larger time steps can enhance simulation efficiency but may lead to a decrease in numerical accuracy or even instability.
 Smaller time steps can improve numerical accuracy but sacrifice simulation efficiency.
 Graphics simulation necessitates maintaining small time steps to ensure stable and accurate simulation while choosing as large a time step as possible to enhance simulation efficiency.
-
-## 参考文献
-- [SPH流体模拟基础](https://zhuanlan.zhihu.com/p/363054480)

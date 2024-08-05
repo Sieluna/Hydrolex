@@ -54,7 +54,8 @@
 
             // -------------------------------------
             // Includes
-            #include "Skybox.hlsl"
+            #include "SkyboxInput.hlsl"
+            #include "SkyboxForwardPass.hlsl"
 
             ENDHLSL
         }

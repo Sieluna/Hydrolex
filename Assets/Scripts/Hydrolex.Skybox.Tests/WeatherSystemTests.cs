@@ -1,6 +1,4 @@
-﻿using System.Collections;
-using NUnit.Framework;
-using UnityEngine.TestTools;
+﻿using NUnit.Framework;
 
 public class WeatherSystemTests
 {

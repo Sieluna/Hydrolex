@@ -14,9 +14,9 @@ public partial struct WeatherSystem : ISystem
     public void OnUpdate(ref SystemState state)
     {
         foreach (var (environment, skybox, weather, time) in SystemAPI
-                     .Query<RefRW<Environment>, RefRW<Skybox>, RefRW<Weather>, Time>())
+                     .Query<RefRW<Environment>, RefRW<Skybox>, RefRW<Weather>, RefRO<Time>>())
         {
-            var (curveTime, gradientTime) = (time.Timeline, time.Timeline / 24.0f);
+            var (curveTime, gradientTime) = (time.ValueRO.Timeline, time.ValueRO.Timeline / 24.0f);
 
             ref var currentWeather = ref weather.ValueRO.WeatherPool.Value.Weathers[weather.ValueRO.CurrentWeather];
 

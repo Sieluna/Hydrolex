@@ -2,7 +2,6 @@
 using NUnit.Framework;
 using Unity.Mathematics;
 using Unity.Transforms;
-using UnityEngine;
 
 [TestFixture]
 public class SkyboxSystemTests
@@ -29,11 +28,11 @@ public class SkyboxSystemTests
         {
             yield return new TestCaseData(new float3(680.0f, 550.0f, 450.0f))
                 .SetName("WaveLength R: 680, WaveLength R: 550, WaveLength B: 450")
-                .Returns((8.37e-06f, 12.65e-06f, 19.01e-06f));
+                .Returns((2.09e-06f, 3.16e-06f, 4.63e-06f));
 
             yield return new TestCaseData(new float3(650.0f, 530.0f, 470.0f))
                 .SetName("WaveLength R: 650, WaveLength R: 530, WaveLength B: 470")
-                .Returns((9.16e-06f, 13.62e-06f, 17.42e-06f));
+                .Returns((2.29e-06f, 3.39e-06f, 4.27e-06f));
         }
     }
 

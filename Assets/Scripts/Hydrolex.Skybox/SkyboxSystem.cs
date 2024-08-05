@@ -46,15 +46,15 @@ public partial class SkyboxSystem : SystemBase
 
     protected override void OnUpdate()
     {
-        foreach (var (skybox, celestial, entity) in SystemAPI.Query<RefRW<Skybox>, Celestium>().WithEntityAccess())
+        foreach (var (skybox, celestial, entity) in SystemAPI.Query<RefRW<Skybox>, RefRO<Celestium>>().WithEntityAccess())
         {
-            ref var sunTransform = ref SystemAPI.GetComponentRW<LocalTransform>(celestial.SunTransform).ValueRW;
-            ref var moonTransform = ref SystemAPI.GetComponentRW<LocalTransform>(celestial.MoonTransform).ValueRW;
+            ref var sunTransform = ref SystemAPI.GetComponentRW<LocalTransform>(celestial.ValueRO.SunTransform).ValueRW;
+            ref var moonTransform = ref SystemAPI.GetComponentRW<LocalTransform>(celestial.ValueRO.MoonTransform).ValueRW;
             ref var transform = ref SystemAPI.GetComponentRW<LocalTransform>(entity).ValueRW;
 
             // Directions
-            RenderSettings.skybox.SetVector(s_SunDirection, new float4(-celestial.SunLocalDirection, 0));
-            RenderSettings.skybox.SetVector(s_MoonDirection, new float4(-celestial.MoonLocalDirection, 0));
+            RenderSettings.skybox.SetVector(s_SunDirection, new float4(-celestial.ValueRO.SunLocalDirection, 0));
+            RenderSettings.skybox.SetVector(s_MoonDirection, new float4(-celestial.ValueRO.MoonLocalDirection, 0));
             RenderSettings.skybox.SetMatrix(s_SunMatrix, ComputeWorldToLocalMatrix(sunTransform));
             RenderSettings.skybox.SetMatrix(s_MoonMatrix, ComputeWorldToLocalMatrix(moonTransform));
             RenderSettings.skybox.SetMatrix(s_UpDirectionMatrix, ComputeWorldToLocalMatrix(transform));

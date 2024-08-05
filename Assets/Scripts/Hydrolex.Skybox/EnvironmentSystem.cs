@@ -18,18 +18,18 @@ public partial class EnvironmentSystem : SystemBase
     protected override void OnUpdate()
     {
         foreach (var (environment, celestial, entity) in SystemAPI
-                     .Query<RefRO<Environment>, Celestium>()
+                     .Query<RefRO<Environment>, RefRO<Celestium>>()
                      .WithEntityAccess())
         {
             ref var lightTransform = ref SystemAPI.GetComponentRW<LocalTransform>(environment.ValueRO.LightTransform).ValueRW;
-            ref var sunTransform = ref SystemAPI.GetComponentRW<LocalTransform>(celestial.SunTransform).ValueRW;
+            ref var sunTransform = ref SystemAPI.GetComponentRW<LocalTransform>(celestial.ValueRO.SunTransform).ValueRW;
             ref var transform = ref SystemAPI.GetComponentRW<LocalTransform>(entity).ValueRW;
 
             var probe = EntityManager.GetComponentObject<ReflectionProbe>(environment.ValueRO.ReflectionProbeTransform);
             var flare = EntityManager.GetComponentObject<LensFlareComponentSRP>(environment.ValueRO.LightTransform);
             var light = EntityManager.GetComponentObject<Light>(environment.ValueRO.LightTransform);
 
-            lightTransform.Rotation = GetDirectionalLightRotation(celestial, math.dot(-sunTransform.Forward(), transform.Up()));
+            lightTransform.Rotation = GetDirectionalLightRotation(celestial.ValueRO, math.dot(-sunTransform.Forward(), transform.Up()));
 
             UpdateReflectionProbe(probe, environment.ValueRO, SystemAPI.Time.DeltaTime);
 

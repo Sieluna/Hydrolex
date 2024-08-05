@@ -16,12 +16,12 @@ public partial struct FluidDestorySystem : ISystem
     {
         var ecb = new EntityCommandBuffer(Allocator.Temp);
 
-        foreach (var (_, entity) in SystemAPI.Query<FluidParticle>().WithEntityAccess())
+        foreach (var (_, entity) in SystemAPI.Query<RefRO<FluidParticle>>().WithEntityAccess())
         {
             ecb.DestroyEntity(entity);
         }
 
-        foreach (var (_, entity) in SystemAPI.Query<BoundaryParticle>().WithEntityAccess())
+        foreach (var (_, entity) in SystemAPI.Query<RefRO<BoundaryParticle>>().WithEntityAccess())
         {
             ecb.DestroyEntity(entity);
         }

@@ -18,14 +18,14 @@ public partial struct FluidGenerateSystem : ISystem
         var ecb = new EntityCommandBuffer(Allocator.TempJob);
 
         foreach (var (localToWorld, bounds, fluid, entity) in SystemAPI
-                     .Query<LocalToWorld, RenderBounds, Fluid>()
+                     .Query<RefRO<LocalToWorld>, RefRO<RenderBounds>, RefRO<Fluid>>()
                      .WithEntityAccess())
         {
-            state.Dependency = ParticlesUtilities.CreateParticles(bounds.Value,
-                localToWorld.Value,
-                state.EntityManager.GetComponentData<FluidParticle>(fluid.Prefab).Radius,
+            state.Dependency = ParticlesUtilities.CreateParticles(bounds.ValueRO.Value,
+                localToWorld.ValueRO.Value,
+                state.EntityManager.GetComponentData<FluidParticle>(fluid.ValueRO.Prefab).Radius,
                 ecb,
-                fluid.Prefab,
+                fluid.ValueRO.Prefab,
                 state.Dependency);
 
             state.Dependency.Complete();
@@ -34,14 +34,14 @@ public partial struct FluidGenerateSystem : ISystem
         }
 
         foreach (var (localToWorld, bounds, boundary, entity) in SystemAPI
-                     .Query<LocalToWorld, RenderBounds, Boundary>()
+                     .Query<RefRO<LocalToWorld>, RefRO<RenderBounds>, RefRO<Boundary>>()
                      .WithEntityAccess())
         {
-            state.Dependency = ParticlesUtilities.CreateParticles(bounds.Value,
-                localToWorld.Value,
-                state.EntityManager.GetComponentData<BoundaryParticle>(boundary.Prefab).Radius,
+            state.Dependency = ParticlesUtilities.CreateParticles(bounds.ValueRO.Value,
+                localToWorld.ValueRO.Value,
+                state.EntityManager.GetComponentData<BoundaryParticle>(boundary.ValueRO.Prefab).Radius,
                 ecb,
-                boundary.Prefab,
+                boundary.ValueRO.Prefab,
                 state.Dependency);
 
             state.Dependency.Complete();
