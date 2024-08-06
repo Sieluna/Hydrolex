@@ -1,0 +1,13 @@
+fileFormatVersion: 2
+guid: 55ad28e0d8b09d440984a60be0f363f6
+MonoImporter:
+  externalObjects: {}
+  serializedVersion: 2
+  defaultReferences:
+  - m_FluidRenderShader: {fileID: 4800000, guid: c0bb2012f1764c5a8c387b5ea2b2156e,
+      type: 3}
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
