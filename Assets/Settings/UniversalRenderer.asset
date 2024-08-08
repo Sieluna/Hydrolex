@@ -13,9 +13,9 @@ MonoBehaviour:
   m_Name: FluidRenderFeature
   m_EditorClassIdentifier: 
   m_Active: 1
-  m_RenderPassEvent: 500
-  m_SphereMesh: {fileID: 10210, guid: 0000000000000000e000000000000000, type: 0}
-  m_FluidRenderShader: {fileID: 4800000, guid: c0bb2012f1764c5a8c387b5ea2b2156e, type: 3}
+  RenderPassEvent: 500
+  FluidRenderBakingShader: {fileID: 7200000, guid: 6b59e2a3bc00c5742bc6a293c6eb28ba, type: 3}
+  FluidRenderShader: {fileID: 4800000, guid: c0bb2012f1764c5a8c387b5ea2b2156e, type: 3}
 --- !u!114 &-1878332245247344467
 MonoBehaviour:
   m_ObjectHideFlags: 0

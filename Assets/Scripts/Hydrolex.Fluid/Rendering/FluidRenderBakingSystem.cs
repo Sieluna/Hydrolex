@@ -1,58 +1,45 @@
-﻿using Unity.Collections;
+﻿using System.Runtime.InteropServices;
+using Unity.Collections;
 using Unity.Entities;
-using Unity.Mathematics;
+using Unity.Physics;
 using Unity.Transforms;
 using UnityEngine;
-
-public struct FluidData
-{
-    public float3 Position;
-    public float Radius;
-}
 
 [UpdateInGroup(typeof(PresentationSystemGroup))]
 public partial class FluidRenderBakingSystem : SystemBase
 {
-    private static readonly int s_FluidParticles = Shader.PropertyToID("FluidParticles");
-    private static readonly int s_FluidParticleCount = Shader.PropertyToID("FluidParticleCount");
-
-    private ComputeBuffer m_ParticleBuffer;
-    private Material m_FluidMaterial;
+    public ComputeBuffer ParticleBuffer { get; private set; }
 
     protected override void OnCreate()
     {
-        m_FluidMaterial = FluidRenderFeature.Instance.FluidRenderMaterial;
-
-        RequireForUpdate(SystemAPI.QueryBuilder().WithAll<FluidParticle, LocalToWorld>().Build());
+        RequireForUpdate(SystemAPI.QueryBuilder().WithAll<FluidParticle, PhysicsVelocity, LocalToWorld>().Build());
     }
 
     protected override void OnUpdate()
     {
-        using var fluidParticles = new NativeList<FluidData>(65535, Allocator.TempJob);
+        using var fluidParticles = new NativeList<FluidParticlePayload>(65535, Allocator.TempJob);
 
-        foreach (var (particle, transform) in SystemAPI.Query<RefRO<FluidParticle>, RefRO<LocalToWorld>>())
+        foreach (var (particle, velocity, transform) in SystemAPI.Query<RefRO<FluidParticle>, RefRO<PhysicsVelocity>, RefRO<LocalToWorld>>())
         {
-            fluidParticles.Add(new FluidData
+            fluidParticles.Add(new FluidParticlePayload
             {
                 Position = transform.ValueRO.Position,
-                Radius = particle.ValueRO.Radius
+                Density = particle.ValueRO.RestDensity,
+                Velocity = velocity.ValueRO.Linear
             });
         }
 
-        if (m_ParticleBuffer == null || m_ParticleBuffer.count != fluidParticles.Length)
+        if (ParticleBuffer == null || ParticleBuffer.count != fluidParticles.Length)
         {
-            m_ParticleBuffer?.Release();
-            m_ParticleBuffer = new ComputeBuffer(fluidParticles.Length, sizeof(float) * 4);
+            ParticleBuffer?.Release();
+            ParticleBuffer = new ComputeBuffer(fluidParticles.Length, Marshal.SizeOf<FluidParticlePayload>());
         }
 
-        m_ParticleBuffer.SetData(fluidParticles.AsArray());
-
-        m_FluidMaterial.SetBuffer(s_FluidParticles, m_ParticleBuffer);
-        m_FluidMaterial.SetInt(s_FluidParticleCount, fluidParticles.Length);
+        ParticleBuffer.SetData(fluidParticles.AsArray());
     }
 
     protected override void OnDestroy()
     {
-        m_ParticleBuffer?.Dispose();
+        ParticleBuffer?.Dispose();
     }
 }

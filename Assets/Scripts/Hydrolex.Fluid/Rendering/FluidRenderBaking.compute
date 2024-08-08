@@ -1,0 +1,51 @@
+// Each #kernel tells which function to compile
+#pragma kernel CSMain
+
+///////////////////////////////////////////////////////////////////////////////////////
+// CBUFFER and Uniforms 
+// (you should put all uniforms of all passes inside this single UnityPerMaterial CBUFFER! else SRP batching is not possible!)
+///////////////////////////////////////////////////////////////////////////////////////
+
+float4 screenSize;
+
+float4x4 viewProjectionMatrix;
+
+uint fluidParticleCount;
+float fluidParticleRadius;
+
+struct FluidParticlePayload
+{
+    float3 position;
+    float density;
+    float3 Velocity;
+};
+
+StructuredBuffer<FluidParticlePayload> fluidParticles;
+RWTexture2D<float4> positionBuffer;
+RWTexture2D<float> depthBuffer;
+
+[numthreads(64, 1, 1)]
+void CSMain (uint id : SV_DispatchThreadID)
+{
+    if (id >= fluidParticleCount) return;
+
+    FluidParticlePayload particle = fluidParticles[id];
+
+    float4 positionCS = mul(viewProjectionMatrix, float4(particle.position, 1.0));
+
+    positionCS.xyz /= positionCS.w;
+
+    float2 uv = positionCS.xy * 0.5f + 0.5f;
+    uv.y = 1.0f - uv.y;  // Flip the Y-axis
+
+    uint2 pixelCoords = uint2(uv * screenSize.xy);
+
+    float depth = positionCS.z * 0.5f + 0.5f;
+    float cacheDepth = depthBuffer[pixelCoords];
+
+    if (cacheDepth == 0 || depth < cacheDepth)
+    {
+        positionBuffer[pixelCoords] = float4(particle.position, 1.0f);
+        depthBuffer[pixelCoords] = depth;
+    }
+}

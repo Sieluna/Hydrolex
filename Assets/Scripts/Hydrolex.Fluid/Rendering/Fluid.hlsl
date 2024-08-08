@@ -20,14 +20,6 @@ uniform float4 _BlitScaleBias;
 uniform float  _BlitMipLevel;
 uniform float2 _BlitTextureSize;
 
-struct FluidData
-{
-    float3 position;
-    float radius;
-};
-
-StructuredBuffer<FluidData> particles;
-
 // note:
 // subfix OS means object spaces    (e.g. positionOS = position object space)
 // subfix WS means world space      (e.g. positionWS = position world space)
@@ -44,7 +36,6 @@ struct Varyings
 {
     float4 positionCS : SV_POSITION;
     float2 texcoord   : TEXCOORD0;
-    UNITY_VERTEX_OUTPUT_STEREO
 };
 
 Varyings vert(Attributes input)

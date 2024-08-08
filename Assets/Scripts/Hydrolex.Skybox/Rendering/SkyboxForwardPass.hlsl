@@ -103,7 +103,7 @@ float3 GetScatteringColor(SkyboxSurfaceData data)
     BmTheta = _Mie.xyz * miePhase * _MieColor.rgb * data.moonRise;
     BrmTheta = (BrTheta + BmTheta) / (_Rayleigh.xyz + _Mie.xyz);
     float3 moonInScatter = BrmTheta * (1.0 - data.extinction) * _Scattering * 0.1 * (1.0 - data.extinction);
-    moonInScatter *= 1.0 - data.sunRise;                                         // Diminish moon's effect when the sun is up.
+    moonInScatter *= 1.0 - data.sunRise; // Diminish moon's effect when the sun is up.
 
     // default night sky
     BrmTheta = BrTheta / (_Rayleigh.xyz + _Mie.xyz);

@@ -2,7 +2,7 @@
 {
     Properties
     {
-	    _PrimaryColor ("Primary Color", Color) = (1, 1, 1, 1)
+        _PrimaryColor ("Primary Color", Color) = (1, 1, 1, 1)
         _SecondaryColor ("Secondary Color", Color) = (1, 1, 1, 1)
         _FoamColor ("Foam Color", Color) = (1, 1, 1, 1)
     }
@@ -15,10 +15,10 @@
 
             // we can add a SubShader below or fallback to Standard built-in to make this
             // material works with both Universal Render Pipeline and Builtin-RP
-	        "RenderPipeline" = "UniversalPipeline"
+            "RenderPipeline" = "UniversalPipeline"
 
-	        // explicit SubShader tag to avoid confusion
-        	"RenderType" = "Opaque"
+            // explicit SubShader tag to avoid confusion
+            "RenderType" = "Opaque"
         }
 
         // [#0 Pass - Forward]
@@ -26,23 +26,23 @@
         {
             Name "Fluid Forward"
 
-	        // -------------------------------------
+            // -------------------------------------
             // Render State Commands
-	        ZWrite Off
+            ZWrite Off
 
-	        HLSLPROGRAM
+            HLSLPROGRAM
             #pragma target 2.0
 
-			// -------------------------------------
+            // -------------------------------------
             // Shader Stages
-			#pragma vertex vert
+            #pragma vertex vert
             #pragma fragment frag
 
-			// -------------------------------------
+            // -------------------------------------
             // Includes
-			#include "Fluid.hlsl"
+            #include "Fluid.hlsl"
 
-			ENDHLSL
+            ENDHLSL
         }
     }
 

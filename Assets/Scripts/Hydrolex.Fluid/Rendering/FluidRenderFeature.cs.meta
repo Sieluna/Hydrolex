@@ -4,8 +4,8 @@ MonoImporter:
   externalObjects: {}
   serializedVersion: 2
   defaultReferences:
-  - m_FluidRenderShader: {fileID: 4800000, guid: c0bb2012f1764c5a8c387b5ea2b2156e,
-      type: 3}
+  - FluidRenderBakingShader: {fileID: 7200000, guid: 6b59e2a3bc00c5742bc6a293c6eb28ba, type: 3}
+  - FluidRenderShader: {fileID: 4800000, guid: c0bb2012f1764c5a8c387b5ea2b2156e, type: 3}
   executionOrder: 0
   icon: {instanceID: 0}
   userData: 
