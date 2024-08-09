@@ -2,9 +2,7 @@
 {
     Properties
     {
-        _PrimaryColor ("Primary Color", Color) = (1, 1, 1, 1)
-        _SecondaryColor ("Secondary Color", Color) = (1, 1, 1, 1)
-        _FoamColor ("Foam Color", Color) = (1, 1, 1, 1)
+        [MainColor] _BaseColor("Color", Color) = (1.0, 1.0, 1.0, 1.0)
     }
     SubShader
     {

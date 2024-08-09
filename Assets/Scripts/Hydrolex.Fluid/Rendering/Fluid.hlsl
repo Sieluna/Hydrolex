@@ -10,10 +10,12 @@
 // textures
 TEXTURE2D(_CameraDepthTexture);   SAMPLER(sampler_CameraDepthTexture);
 TEXTURE2D(_BlitTexture);          SAMPLER(sampler_BlitTexture);
+TEXTURE2D(_FluidDepthTexture);    SAMPLER(sampler_FluidDepthTexture);
 
 CBUFFER_START(UnityPerMaterial)
 float4 _CameraDepthTexture_ST;
 float4 _BlitTexture_ST;
+float4 _FluidDepthTexture_ST;
 CBUFFER_END
 
 uniform float4 _BlitScaleBias;
@@ -53,6 +55,15 @@ Varyings vert(Attributes input)
 
 float4 frag(Varyings input) : SV_Target
 {
-    float depth = SAMPLE_TEXTURE2D(_CameraDepthTexture, sampler_CameraDepthTexture, input.texcoord).r;
-    return float4(depth, depth, depth, 1);
+    float fluidDepth = SAMPLE_TEXTURE2D(_FluidDepthTexture, sampler_FluidDepthTexture, input.texcoord).r;
+    float sceneDepth = SAMPLE_TEXTURE2D(_CameraDepthTexture, sampler_CameraDepthTexture, input.texcoord).r;
+
+    if (fluidDepth > sceneDepth)
+    {
+        return float4(1, 0, 0, 1);
+    }
+
+    float4 color = SAMPLE_TEXTURE2D(_BlitTexture, sampler_BlitTexture, input.texcoord);
+
+    return color;
 }

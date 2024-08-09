@@ -1,51 +1,159 @@
 // Each #kernel tells which function to compile
-#pragma kernel CSMain
+#pragma kernel BakingDepth
+#pragma kernel SmoothingDepth
 
 ///////////////////////////////////////////////////////////////////////////////////////
 // CBUFFER and Uniforms 
 // (you should put all uniforms of all passes inside this single UnityPerMaterial CBUFFER! else SRP batching is not possible!)
 ///////////////////////////////////////////////////////////////////////////////////////
 
-float4 screenSize;
+float4 _ScreenSize;
 
-float4x4 viewProjectionMatrix;
+float4x4 _ViewMatrix;
+float4x4 _ProjectionMatrix;
+float4x4 _ViewProjectionMatrix;
 
-uint fluidParticleCount;
-float fluidParticleRadius;
+float4 _ProjectionParams;
+float4 _ZBufferParams;
 
 struct FluidParticlePayload
 {
     float3 position;
     float density;
-    float3 Velocity;
+    float3 velocity;
 };
 
-StructuredBuffer<FluidParticlePayload> fluidParticles;
-RWTexture2D<float4> positionBuffer;
-RWTexture2D<float> depthBuffer;
+StructuredBuffer<FluidParticlePayload> _FluidParticles;
+uint  _FluidParticleCount;
+float _FluidParticleRadius;
+
+int   _FluidMaxFilterSize;
+float _FluidBlurFilterSize;
+float _FluidDepthThreshold;
+
+RWTexture2D<float4> _FluidPositionTexture;
+RWTexture2D<float>  _FluidDepthTexture;
+RWTexture2D<float>  _FluidBlurDepthTexture;
+
+///////////////////////////////////////////////////////////////////////////////////////
+// Kernel
+///////////////////////////////////////////////////////////////////////////////////////
+
+struct VertexPositionInputs
+{
+    float3 positionWS; // World space position
+    float3 positionVS; // View space position
+    float4 positionCS; // Homogeneous clip space position
+    float4 positionNDC;// Homogeneous normalized device coordinates
+};
+
+float3 TransformWorldToView(float3 positionWS)
+{
+    return mul(_ViewMatrix, float4(positionWS, 1.0)).xyz;
+}
+
+float4 TransformWViewToHClip(float3 positionVS)
+{
+    return mul(_ProjectionMatrix, float4(positionVS, 1.0));
+}
+
+float4 TransformWorldToHClip(float3 positionWS)
+{
+    return mul(_ViewProjectionMatrix, float4(positionWS, 1.0));
+}
+
+VertexPositionInputs GetVertexPositionInputs(float3 positionWS)
+{
+    VertexPositionInputs input;
+    input.positionWS = positionWS;
+    input.positionVS = TransformWorldToView(positionWS);
+    input.positionCS = TransformWorldToHClip(positionWS);
+
+    float4 ndc = input.positionCS * 0.5f;
+    input.positionNDC.xy = float2(ndc.x, ndc.y * _ProjectionParams.x) + ndc.w;
+    input.positionNDC.zw = input.positionCS.zw;
+
+    return input;
+}
 
 [numthreads(64, 1, 1)]
-void CSMain (uint id : SV_DispatchThreadID)
+void BakingDepth(uint id : SV_DispatchThreadID)
 {
-    if (id >= fluidParticleCount) return;
+    if (id >= _FluidParticleCount) return;
 
-    FluidParticlePayload particle = fluidParticles[id];
+    FluidParticlePayload particle = _FluidParticles[id];
 
-    float4 positionCS = mul(viewProjectionMatrix, float4(particle.position, 1.0));
+    VertexPositionInputs midPositionInputs = GetVertexPositionInputs(particle.position);
+    float3 midNDC = midPositionInputs.positionNDC.xyz / midPositionInputs.positionNDC.w;
 
-    positionCS.xyz /= positionCS.w;
+    float projectedRadius = abs(_FluidParticleRadius / midPositionInputs.positionVS.z);
+    float radiusPixelCoords = projectedRadius * _ScreenSize.x * 0.5;
 
-    float2 uv = positionCS.xy * 0.5f + 0.5f;
-    uv.y = 1.0f - uv.y;  // Flip the Y-axis
+    uint2 midPixelCoords = uint2(midNDC.xy * _ScreenSize.xy);
 
-    uint2 pixelCoords = uint2(uv * screenSize.xy);
+    uint2 minPixelCoords = midPixelCoords - uint2(radiusPixelCoords, radiusPixelCoords);
+    uint2 maxPixelCoords = midPixelCoords + uint2(radiusPixelCoords, radiusPixelCoords);
 
-    float depth = positionCS.z * 0.5f + 0.5f;
-    float cacheDepth = depthBuffer[pixelCoords];
+    bool reverseZ = _ProjectionParams.x < 0.0f;
 
-    if (cacheDepth == 0 || depth < cacheDepth)
+    for (uint y = minPixelCoords.y; y <= maxPixelCoords.y; ++y)
     {
-        positionBuffer[pixelCoords] = float4(particle.position, 1.0f);
-        depthBuffer[pixelCoords] = depth;
+        for (uint x = minPixelCoords.x; x <= maxPixelCoords.x; ++x)
+        {
+            uint2 pixelCoords = uint2(x, y);
+
+            float distanceFromCenter = length(float2(pixelCoords) - midPixelCoords);
+
+            if (distanceFromCenter > radiusPixelCoords) continue;
+
+            float depth = midNDC.z;
+            float cachedDepth = _FluidDepthTexture[pixelCoords];
+
+            if ((reverseZ && (cachedDepth == 0 || depth > cachedDepth)) ||
+                (!reverseZ && (cachedDepth == 0 || depth < cachedDepth)))
+            {
+                _FluidPositionTexture[pixelCoords] = float4(particle.position, 1.0f);
+                _FluidDepthTexture[pixelCoords] = depth;
+            }
+        }
     }
+}
+
+[numthreads(8, 8, 1)]
+void SmoothingDepth(uint2 id : SV_DispatchThreadID)
+{
+    if (id.x >= (uint)_ScreenSize.x || id.y >= (uint)_ScreenSize.y) return;
+
+    float depth = _FluidDepthTexture[id.xy];
+
+    if (depth >= 1e6 || depth <= 0.0f)
+    {
+        _FluidBlurDepthTexture[id.xy] = depth;
+        return;
+    }
+
+    float depthSum = 0.0f;
+    float weightSum = 0.0f;
+
+    float kernel[3] = { 0.25f, 0.5f, 0.25f };
+
+    for (int y = -1; y <= 1; ++y)
+    {
+        for (int x = -1; x <= 1; ++x)
+        {
+            int2 offset = int2(x, y);
+            int2 sampleCoords = id.xy + offset;
+
+            if (sampleCoords.x < 0 || sampleCoords.x >= _ScreenSize.x || sampleCoords.y < 0 || sampleCoords.y >= _ScreenSize.y)
+                continue;
+
+            float sampleDepth = _FluidDepthTexture[sampleCoords];
+            float weight = kernel[1 + x] * kernel[1 + y];
+
+            depthSum += sampleDepth * weight;
+            weightSum += weight;
+        }
+    }
+
+    _FluidBlurDepthTexture[id.xy] = depthSum / weightSum;
 }

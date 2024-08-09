@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using Unity.Mathematics;
 using UnityEngine;
@@ -14,14 +15,18 @@ public struct FluidParticlePayload
 
 public class FluidRenderFeature : ScriptableRendererFeature
 {
-    public RenderPassEvent RenderPassEvent = RenderPassEvent.AfterRenderingTransparents;
+    public RenderPassEvent FluidBakingRenderPassEvent = RenderPassEvent.AfterRenderingOpaques;
+    public RenderPassEvent FluidRenderPassEvent = RenderPassEvent.AfterRenderingTransparents;
     public ComputeShader FluidRenderBakingShader;
     public Shader FluidRenderShader;
 
     private FluidRenderBakingPass m_FluidRenderBakingPass;
     private FluidRenderPass m_fluidRenderPass;
-    private Material m_FluidParticleRenderMaterial;
     private Material m_FluidRenderMaterial;
+
+    public Dictionary<string, RTHandle> RTHandleDictionary { get; } = new();
+
+    public static FluidRenderFeature Instance { get; private set; }
 
     public override void Create()
     {
@@ -29,18 +34,20 @@ public class FluidRenderFeature : ScriptableRendererFeature
 
         m_FluidRenderBakingPass = new FluidRenderBakingPass(FluidRenderBakingShader)
         {
-            renderPassEvent = RenderPassEvent
+            renderPassEvent = FluidBakingRenderPassEvent
         };
-        // m_fluidRenderPass = new FluidRenderPass(m_FluidRenderMaterial)
-        // {
-        //     renderPassEvent = RenderPassEvent.BeforeRenderingPostProcessing
-        // };
+        m_fluidRenderPass = new FluidRenderPass(m_FluidRenderMaterial)
+        {
+            renderPassEvent = FluidRenderPassEvent
+        };
+
+        Instance = this;
     }
 
     public override void AddRenderPasses(ScriptableRenderer renderer, ref RenderingData renderingData)
     {
         renderer.EnqueuePass(m_FluidRenderBakingPass);
-        // renderer.EnqueuePass(m_fluidRenderPass);
+        renderer.EnqueuePass(m_fluidRenderPass);
     }
 
     protected override void Dispose(bool disposing)
