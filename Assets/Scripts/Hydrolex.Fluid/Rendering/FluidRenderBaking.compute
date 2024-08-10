@@ -31,9 +31,8 @@ int   _FluidMaxFilterSize;
 float _FluidBlurFilterSize;
 float _FluidDepthThreshold;
 
-RWTexture2D<float4> _FluidPositionTexture;
-RWTexture2D<float>  _FluidDepthTexture;
-RWTexture2D<float>  _FluidBlurDepthTexture;
+RWTexture2D<float3> _FluidDepthTexture;
+RWTexture2D<float2> _FluidSmoothDepthTexture;
 
 ///////////////////////////////////////////////////////////////////////////////////////
 // Kernel
@@ -83,16 +82,16 @@ void BakingDepth(uint id : SV_DispatchThreadID)
 
     FluidParticlePayload particle = _FluidParticles[id];
 
-    VertexPositionInputs midPositionInputs = GetVertexPositionInputs(particle.position);
-    float3 midNDC = midPositionInputs.positionNDC.xyz / midPositionInputs.positionNDC.w;
+    VertexPositionInputs positionInputs = GetVertexPositionInputs(particle.position);
+    float3 standardNDC = positionInputs.positionNDC.xyz / positionInputs.positionNDC.w;
 
-    float projectedRadius = abs(_FluidParticleRadius / midPositionInputs.positionVS.z);
+    float projectedRadius = abs(_FluidParticleRadius / positionInputs.positionVS.z);
     float radiusPixelCoords = projectedRadius * _ScreenSize.x * 0.5;
 
-    uint2 midPixelCoords = uint2(midNDC.xy * _ScreenSize.xy);
+    uint2 centerPixelCoords = uint2(standardNDC.xy * _ScreenSize.xy);
 
-    uint2 minPixelCoords = midPixelCoords - uint2(radiusPixelCoords, radiusPixelCoords);
-    uint2 maxPixelCoords = midPixelCoords + uint2(radiusPixelCoords, radiusPixelCoords);
+    uint2 minPixelCoords = centerPixelCoords - uint2(radiusPixelCoords, radiusPixelCoords);
+    uint2 maxPixelCoords = centerPixelCoords + uint2(radiusPixelCoords, radiusPixelCoords);
 
     bool reverseZ = _ProjectionParams.x < 0.0f;
 
@@ -102,19 +101,21 @@ void BakingDepth(uint id : SV_DispatchThreadID)
         {
             uint2 pixelCoords = uint2(x, y);
 
-            float distanceFromCenter = length(float2(pixelCoords) - midPixelCoords);
+            float distanceFromCenter = length(float2(pixelCoords) - centerPixelCoords);
 
             if (distanceFromCenter > radiusPixelCoords) continue;
 
-            float depth = midNDC.z;
-            float cachedDepth = _FluidDepthTexture[pixelCoords];
+            float depth = standardNDC.z;
+            float2 cachedDepth = _FluidDepthTexture[pixelCoords].xy;
 
-            if ((reverseZ && (cachedDepth == 0 || depth > cachedDepth)) ||
-                (!reverseZ && (cachedDepth == 0 || depth < cachedDepth)))
-            {
-                _FluidPositionTexture[pixelCoords] = float4(particle.position, 1.0f);
-                _FluidDepthTexture[pixelCoords] = depth;
-            }
+            cachedDepth = cachedDepth.xy == 0.0f
+                ? float2(depth, depth)
+                : float2(
+                    reverseZ ? max(depth, cachedDepth.x) : min(depth, cachedDepth.x),
+                    reverseZ ? min(depth, cachedDepth.y) : max(depth, cachedDepth.y)
+                );
+
+            _FluidDepthTexture[pixelCoords] = float3(cachedDepth.xy, abs(cachedDepth.y - cachedDepth.x));
         }
     }
 }
@@ -124,11 +125,13 @@ void SmoothingDepth(uint2 id : SV_DispatchThreadID)
 {
     if (id.x >= (uint)_ScreenSize.x || id.y >= (uint)_ScreenSize.y) return;
 
-    float depth = _FluidDepthTexture[id.xy];
+    float3 fluidDepthThickness = _FluidDepthTexture[id.xy];
+    float fluidDepth = fluidDepthThickness.x;
+    float fluidThickness = fluidDepthThickness.z;
 
-    if (depth >= 1e6 || depth <= 0.0f)
+    if (fluidDepth >= 1e6 || fluidDepth <= 0.0f)
     {
-        _FluidBlurDepthTexture[id.xy] = depth;
+        _FluidSmoothDepthTexture[id.xy] = float2(fluidDepth, fluidThickness);
         return;
     }
 
@@ -147,7 +150,7 @@ void SmoothingDepth(uint2 id : SV_DispatchThreadID)
             if (sampleCoords.x < 0 || sampleCoords.x >= _ScreenSize.x || sampleCoords.y < 0 || sampleCoords.y >= _ScreenSize.y)
                 continue;
 
-            float sampleDepth = _FluidDepthTexture[sampleCoords];
+            float sampleDepth = _FluidDepthTexture[sampleCoords].x;
             float weight = kernel[1 + x] * kernel[1 + y];
 
             depthSum += sampleDepth * weight;
@@ -155,5 +158,5 @@ void SmoothingDepth(uint2 id : SV_DispatchThreadID)
         }
     }
 
-    _FluidBlurDepthTexture[id.xy] = depthSum / weightSum;
+    _FluidSmoothDepthTexture[id.xy] = float2(depthSum / weightSum, fluidThickness);
 }

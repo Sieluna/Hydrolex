@@ -19,9 +19,8 @@ public class FluidRenderBakingPass : ScriptableRenderPass
     private static readonly int s_FluidParticleCount = Shader.PropertyToID("_FluidParticleCount");
     private static readonly int s_FluidParticleRadius = Shader.PropertyToID("_FluidParticleRadius");
 
-    private static readonly int s_FluidPositionTexture = Shader.PropertyToID("_FluidPositionTexture");
     private static readonly int s_FluidDepthTexture = Shader.PropertyToID("_FluidDepthTexture");
-    private static readonly int s_FluidBlurDepthTexture = Shader.PropertyToID("_FluidBlurDepthTexture");
+    private static readonly int s_FluidSmoothDepthTexture = Shader.PropertyToID("_FluidSmoothDepthTexture");
 
     private FluidRenderBakingSystem m_FluidRenderBakingSystem;
     private ComputeShader m_FluidRenderBakingShader;
@@ -29,9 +28,8 @@ public class FluidRenderBakingPass : ScriptableRenderPass
     private int m_BakingDepthKernelHandle;
     private int m_SmoothingDepthKernelHandle;
 
-    private RTHandle m_FluidPositionHandle;
     private RTHandle m_FluidDepthHandle;
-    private RTHandle m_FluidBlurDepthHandle;
+    private RTHandle m_FluidSmoothDepthHandle;
 
     public FluidRenderBakingPass(ComputeShader shader)
     {
@@ -44,17 +42,9 @@ public class FluidRenderBakingPass : ScriptableRenderPass
     {
         var cameraTargetDescriptor = renderingData.cameraData.cameraTargetDescriptor;
 
-        var positionTargetDescriptor = new RenderTextureDescriptor(cameraTargetDescriptor.width,
-            cameraTargetDescriptor.height,
-            RenderTextureFormat.ARGBFloat)
-        {
-            enableRandomWrite = true
-        };
-        RenderingUtils.ReAllocateIfNeeded(ref m_FluidPositionHandle, positionTargetDescriptor, name: "_FluidPositionRT");
-
         var depthTargetDescriptor = new RenderTextureDescriptor(cameraTargetDescriptor.width,
             cameraTargetDescriptor.height,
-            RenderTextureFormat.RFloat)
+            RenderTextureFormat.ARGBFloat)
         {
             enableRandomWrite = true
         };
@@ -62,15 +52,14 @@ public class FluidRenderBakingPass : ScriptableRenderPass
 
         var blurDepthTargetDescriptor = new RenderTextureDescriptor(cameraTargetDescriptor.width,
             cameraTargetDescriptor.height,
-            RenderTextureFormat.RFloat)
+            RenderTextureFormat.RGFloat)
         {
             enableRandomWrite = true
         };
-        RenderingUtils.ReAllocateIfNeeded(ref m_FluidBlurDepthHandle, blurDepthTargetDescriptor, name: "_FluidBlurDepthRT");
+        RenderingUtils.ReAllocateIfNeeded(ref m_FluidSmoothDepthHandle, blurDepthTargetDescriptor, name: "_FluidSmoothDepthRT");
 
-        FluidRenderFeature.Instance.RTHandleDictionary["FluidPosition"] = m_FluidPositionHandle;
         FluidRenderFeature.Instance.RTHandleDictionary["FluidDepth"] = m_FluidDepthHandle;
-        FluidRenderFeature.Instance.RTHandleDictionary["FluidBlurDepth"] = m_FluidBlurDepthHandle;
+        FluidRenderFeature.Instance.RTHandleDictionary["FluidSmoothDepth"] = m_FluidSmoothDepthHandle;
     }
 
     public override void Execute(ScriptableRenderContext context, ref RenderingData renderingData)
@@ -115,13 +104,10 @@ public class FluidRenderBakingPass : ScriptableRenderPass
         var projectionMatrix = cameraData.GetGPUProjectionMatrix();
         var viewAndProjectionMatrix = projectionMatrix * viewMatrix;
 
-        cmd.SetRenderTarget(m_FluidPositionHandle);
-        cmd.ClearRenderTarget(true, true, Color.clear);
-
         cmd.SetRenderTarget(m_FluidDepthHandle);
         cmd.ClearRenderTarget(true, true, Color.clear);
 
-        cmd.SetRenderTarget(m_FluidBlurDepthHandle);
+        cmd.SetRenderTarget(m_FluidSmoothDepthHandle);
         cmd.ClearRenderTarget(true, true, Color.clear);
 
         cmd.SetComputeVectorParam(m_FluidRenderBakingShader, s_ScreenSize, new Vector4(scaledCameraWidth, scaledCameraHeight, 1.0f / scaledCameraWidth, 1.0f / scaledCameraHeight));
@@ -137,7 +123,6 @@ public class FluidRenderBakingPass : ScriptableRenderPass
         cmd.SetComputeIntParam(m_FluidRenderBakingShader, s_FluidParticleCount, particleBuffer.count);
         cmd.SetComputeFloatParam(m_FluidRenderBakingShader, s_FluidParticleRadius, 0.2f);
 
-        cmd.SetComputeTextureParam(m_FluidRenderBakingShader, m_BakingDepthKernelHandle, s_FluidPositionTexture, m_FluidPositionHandle);
         cmd.SetComputeTextureParam(m_FluidRenderBakingShader, m_BakingDepthKernelHandle, s_FluidDepthTexture, m_FluidDepthHandle);
 
         var threadGroups = Mathf.CeilToInt(particleBuffer.count / 64.0f);
@@ -145,7 +130,7 @@ public class FluidRenderBakingPass : ScriptableRenderPass
         cmd.DispatchCompute(m_FluidRenderBakingShader, m_BakingDepthKernelHandle, threadGroups, 1, 1);
 
         cmd.SetComputeTextureParam(m_FluidRenderBakingShader, m_SmoothingDepthKernelHandle, s_FluidDepthTexture, m_FluidDepthHandle);
-        cmd.SetComputeTextureParam(m_FluidRenderBakingShader, m_SmoothingDepthKernelHandle, s_FluidBlurDepthTexture, m_FluidBlurDepthHandle);
+        cmd.SetComputeTextureParam(m_FluidRenderBakingShader, m_SmoothingDepthKernelHandle, s_FluidSmoothDepthTexture, m_FluidSmoothDepthHandle);
 
         var threadGroupsX = Mathf.CeilToInt(scaledCameraWidth / 8.0f);
         var threadGroupsY = Mathf.CeilToInt(scaledCameraHeight / 8.0f);
@@ -157,9 +142,8 @@ public class FluidRenderBakingPass : ScriptableRenderPass
 
     public void Dispose()
     {
-        m_FluidPositionHandle?.Release();
         m_FluidDepthHandle?.Release();
-        m_FluidBlurDepthHandle?.Release();
+        m_FluidSmoothDepthHandle?.Release();
     }
 }
 
@@ -187,7 +171,7 @@ public class FluidRenderPass : ScriptableRenderPass
 
     public override void Execute(ScriptableRenderContext context, ref RenderingData renderingData)
     {
-        m_FluidDepthHandle ??= FluidRenderFeature.Instance.RTHandleDictionary["FluidBlurDepth"];
+        m_FluidDepthHandle ??= FluidRenderFeature.Instance.RTHandleDictionary["FluidSmoothDepth"];
 
         var cmd = CommandBufferPool.Get(nameof(FluidRenderPass));
 
