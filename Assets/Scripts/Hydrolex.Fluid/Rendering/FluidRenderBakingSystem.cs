@@ -29,7 +29,7 @@ public partial class FluidRenderBakingSystem : SystemBase
             });
         }
 
-        if (ParticleBuffer == null || ParticleBuffer.count != fluidParticles.Length)
+        if (ParticleBuffer is null || ParticleBuffer.count != fluidParticles.Length)
         {
             ParticleBuffer?.Release();
             ParticleBuffer = new ComputeBuffer(fluidParticles.Length, Marshal.SizeOf<FluidParticlePayload>());

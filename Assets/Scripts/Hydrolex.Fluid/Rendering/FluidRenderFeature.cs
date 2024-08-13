@@ -46,8 +46,11 @@ public class FluidRenderFeature : ScriptableRendererFeature
 
     public override void AddRenderPasses(ScriptableRenderer renderer, ref RenderingData renderingData)
     {
-        renderer.EnqueuePass(m_FluidRenderBakingPass);
-        renderer.EnqueuePass(m_fluidRenderPass);
+        if ((renderingData.cameraData.cameraType & ~(CameraType.Game | CameraType.SceneView)) == 0)
+        {
+            renderer.EnqueuePass(m_FluidRenderBakingPass);
+            renderer.EnqueuePass(m_fluidRenderPass);
+        }
     }
 
     protected override void Dispose(bool disposing)

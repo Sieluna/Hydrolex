@@ -107,9 +107,6 @@ public class FluidRenderBakingPass : ScriptableRenderPass
         cmd.SetRenderTarget(m_FluidDepthHandle);
         cmd.ClearRenderTarget(true, true, Color.clear);
 
-        cmd.SetRenderTarget(m_FluidSmoothDepthHandle);
-        cmd.ClearRenderTarget(true, true, Color.clear);
-
         cmd.SetComputeVectorParam(m_FluidRenderBakingShader, s_ScreenSize, new Vector4(scaledCameraWidth, scaledCameraHeight, 1.0f / scaledCameraWidth, 1.0f / scaledCameraHeight));
 
         cmd.SetComputeMatrixParam(m_FluidRenderBakingShader, s_ViewMatrix, viewMatrix);
@@ -171,7 +168,8 @@ public class FluidRenderPass : ScriptableRenderPass
 
     public override void Execute(ScriptableRenderContext context, ref RenderingData renderingData)
     {
-        m_FluidDepthHandle ??= FluidRenderFeature.Instance.RTHandleDictionary["FluidSmoothDepth"];
+        m_FluidDepthHandle = FluidRenderFeature.Instance.RTHandleDictionary["FluidSmoothDepth"];
+        if (m_FluidDepthHandle is null) return;
 
         var cmd = CommandBufferPool.Get(nameof(FluidRenderPass));
 
